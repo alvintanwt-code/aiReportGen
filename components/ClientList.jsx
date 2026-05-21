@@ -19,20 +19,27 @@ export default function ClientList({
 
   return (
     <div>
-      <div style={{ marginBottom: '20px' }}>
+      <div style={{ marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h2 style={{ marginBottom: '8px' }}>Your Clients</h2>
+          <p style={{ fontSize: '14px', color: '#999' }}>Manage and create client profiles</p>
+        </div>
         {!showNewClientForm && (
           <button
             onClick={() => setShowNewClientForm(true)}
             style={{
-              padding: '12px 24px',
-              backgroundColor: '#28a745',
+              padding: '11px 20px',
+              backgroundColor: '#1a1a1a',
               color: 'white',
               border: 'none',
-              borderRadius: '4px',
+              borderRadius: '6px',
               cursor: 'pointer',
-              fontSize: '16px',
-              fontWeight: 'bold',
+              fontSize: '14px',
+              fontWeight: '500',
+              transition: 'all 0.2s ease',
             }}
+            onMouseEnter={(e) => e.target.style.backgroundColor = '#333'}
+            onMouseLeave={(e) => e.target.style.backgroundColor = '#1a1a1a'}
           >
             + New Client
           </button>
@@ -40,21 +47,33 @@ export default function ClientList({
       </div>
 
       {showNewClientForm && (
-        <NewClientForm
-          onAddClient={(key, name) => {
-            onAddClient(key, name);
-            setShowNewClientForm(false);
-          }}
-          onCancel={() => setShowNewClientForm(false)}
-        />
+        <div style={{ marginBottom: '32px' }}>
+          <NewClientForm
+            onAddClient={(key, name) => {
+              onAddClient(key, name);
+              setShowNewClientForm(false);
+            }}
+            onCancel={() => setShowNewClientForm(false)}
+          />
+        </div>
       )}
 
       {clients.length === 0 ? (
-        <p style={{ color: '#666', fontSize: '16px' }}>
-          No clients yet. Create one to get started!
-        </p>
+        <div
+          style={{
+            padding: '48px 32px',
+            backgroundColor: '#f8f8f8',
+            borderRadius: '8px',
+            textAlign: 'center',
+            border: '1px solid #e5e5e5',
+          }}
+        >
+          <p style={{ fontSize: '16px', color: '#999' }}>
+            No clients yet. Create one to get started!
+          </p>
+        </div>
       ) : (
-        <div>
+        <div style={{ display: 'grid', gap: '16px' }}>
           {clients.map((client) => (
             <ClientCard
               key={client.id}

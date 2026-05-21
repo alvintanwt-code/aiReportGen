@@ -6,8 +6,115 @@ import ReviewUploadView from '../components/ReviewUploadView';
 import { getInitialClients, getInitialReviews } from '../lib/mockData';
 import { saveClients, loadClients, saveReviews, loadReviews } from '../lib/storage';
 
-// Simple UUID generator (since we can't import uuid package easily)
+// Simple UUID generator
 const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+const STEPS = [
+  {
+    id: 'clients',
+    title: 'Manage Clients',
+    description: 'Create and manage client profiles with personal information',
+  },
+  {
+    id: 'upload',
+    title: 'Upload Portfolio',
+    description: 'Create reviews and upload portfolio screenshots or CSV files',
+  },
+  {
+    id: 'extract',
+    title: 'Extract & Refine',
+    description: 'Extract holdings data and edit details before finalizing',
+  },
+];
+
+function StepIndicator({ steps, currentStep }) {
+  return (
+    <div style={{ marginBottom: '48px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '20px' }}>
+        {steps.map((step, index) => {
+          const isActive = step.id === currentStep;
+          const isPast = steps.findIndex(s => s.id === currentStep) > index;
+
+          return (
+            <div key={step.id} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '12px' }}>
+              {/* Step circle */}
+              <div
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  backgroundColor: isActive || isPast ? '#1a1a1a' : '#e5e5e5',
+                  color: isActive || isPast ? 'white' : '#999',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  flexShrink: 0,
+                  transition: 'all 0.3s ease',
+                }}
+              >
+                {isPast ? '✓' : index + 1}
+              </div>
+
+              {/* Step label */}
+              <div>
+                <div
+                  style={{
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    color: isActive ? '#1a1a1a' : '#666',
+                    transition: 'color 0.3s ease',
+                  }}
+                >
+                  {step.title}
+                </div>
+              </div>
+
+              {/* Connecting line */}
+              {index < steps.length - 1 && (
+                <div
+                  style={{
+                    flex: 1,
+                    height: '2px',
+                    backgroundColor: isPast ? '#1a1a1a' : '#e5e5e5',
+                    marginLeft: '12px',
+                    transition: 'all 0.3s ease',
+                  }}
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function SideInstruction({ currentStep, steps }) {
+  const step = steps.find(s => s.id === currentStep);
+
+  return (
+    <div
+      style={{
+        padding: '24px',
+        backgroundColor: '#f8f8f8',
+        borderLeft: '3px solid #1a1a1a',
+        marginBottom: '32px',
+      }}
+    >
+      <div style={{ fontSize: '12px', color: '#999', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+        Current Step
+      </div>
+      <h3 style={{ margin: '0 0 12px 0', fontSize: '20px', color: '#1a1a1a' }}>
+        {step?.title}
+      </h3>
+      <p style={{ margin: '0', fontSize: '14px', color: '#555', lineHeight: '1.6' }}>
+        {step?.description}
+      </p>
+    </div>
+  );
+}
 
 export default function Home() {
   const [clients, setClients] = useState([]);
@@ -38,7 +145,7 @@ export default function Home() {
       saveClients(clientsToUse);
     }
 
-    // Load reviews - only use saved reviews if clients are not mock
+    // Load reviews
     const isUsingMockClients = clientsToUse === getInitialClients() ||
                                (clientsToUse.length > 0 && clientsToUse[0].id === 'client-1');
 
@@ -95,11 +202,9 @@ export default function Home() {
   const handleDeleteClient = (clientId) => {
     console.log('[App] handleDeleteClient:', clientId);
 
-    // Remove client
     const updatedClients = clients.filter((c) => c.id !== clientId);
     setClients(updatedClients);
 
-    // Remove all reviews for this client
     const updatedReviews = reviews.filter((r) => r.clientId !== clientId);
     setReviews(updatedReviews);
 
@@ -121,7 +226,6 @@ export default function Home() {
     console.log('[App] Created new review:', newReview);
     setReviews([...reviews, newReview]);
 
-    // Update client's reviews array
     const updatedClients = clients.map((c) =>
       c.id === clientId
         ? { ...c, reviews: [...c.reviews, newReview.id] }
@@ -136,11 +240,9 @@ export default function Home() {
     const reviewToDelete = reviews.find((r) => r.id === reviewId);
     const clientId = reviewToDelete.clientId;
 
-    // Remove review
     const updatedReviews = reviews.filter((r) => r.id !== reviewId);
     setReviews(updatedReviews);
 
-    // Update client's reviews array
     const updatedClients = clients.map((c) =>
       c.id === clientId
         ? {
@@ -171,7 +273,6 @@ export default function Home() {
   const handleSaveHoldings = (holdingsSets) => {
     console.log('[App] handleSaveHoldings:', holdingsSets.length, 'holdings sets');
 
-    // Update the review with holdingsSets and status
     const updatedReviews = reviews.map((r) =>
       r.id === selectedReviewId
         ? {
@@ -185,7 +286,6 @@ export default function Home() {
     setReviews(updatedReviews);
     console.log('[App] Review status updated to "extracted" with', holdingsSets.length, 'portfolio(ies)');
 
-    // Navigate back
     setCurrentView('dashboard');
     setSelectedReviewId(null);
   };
@@ -198,61 +298,75 @@ export default function Home() {
     );
   }
 
+  const currentStep = currentView === 'dashboard' ? 'clients' : 'upload';
+
   return (
     <div
       style={{
-        maxWidth: '1200px',
-        margin: '0 auto',
-        padding: '40px 20px',
+        minHeight: '100vh',
+        backgroundColor: '#ffffff',
+        color: '#1a1a1a',
       }}
     >
-      <header style={{ marginBottom: '40px', textAlign: 'center' }}>
-        <h1 style={{ margin: '0 0 10px 0', color: '#007bff' }}>
-          AI Report Generator
-        </h1>
-        <p style={{ margin: '0', color: '#666' }}>
-          Portfolio Review Management for Financial Advisors
-        </p>
-      </header>
+      {/* Header */}
+      <div
+        style={{
+          borderBottom: '1px solid #e5e5e5',
+          padding: '24px 0',
+          backgroundColor: '#ffffff',
+        }}
+      >
+        <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 24px' }}>
+          <h1 style={{ margin: '0', fontSize: '28px', fontWeight: '700', letterSpacing: '-0.5px' }}>
+            leet portfolio extractor
+          </h1>
+          <p style={{ margin: '8px 0 0 0', fontSize: '13px', color: '#999' }}>
+            Extract, edit, and manage portfolio data with ease
+          </p>
+        </div>
+      </div>
 
-      {currentView === 'dashboard' && (
-        <main>
-          <ClientList
-            clients={clients}
-            reviews={reviews}
-            onAddClient={handleAddClient}
-            onAddReview={handleAddReview}
-            onDeleteClient={handleDeleteClient}
-            onDeleteReview={handleDeleteReview}
-            onStartReview={handleStartReview}
-          />
-        </main>
-      )}
+      {/* Main Content */}
+      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '48px 24px' }}>
+        {/* Step Indicator */}
+        <StepIndicator steps={STEPS} currentStep={currentStep} />
 
-      {currentView === 'upload' && selectedReviewId && (
-        <main>
-          {(() => {
-            const selectedReview = reviews.find((r) => r.id === selectedReviewId);
-            if (!selectedReview) {
-              return <p>Review not found</p>;
-            }
-            return (
-              <ReviewUploadView
-                review={selectedReview}
-                onSaveHoldings={handleSaveHoldings}
-                onBack={handleBackToDashboard}
-              />
-            );
-          })()}
-        </main>
-      )}
+        {/* Side Instruction */}
+        <SideInstruction currentStep={currentStep} steps={STEPS} />
 
-      <footer style={{ marginTop: '60px', textAlign: 'center', color: '#999', fontSize: '12px' }}>
-        <p>Phase 1: Client & Review Management</p>
-        <p>
-          Open browser console (F12) to see debug logs for troubleshooting data flow
-        </p>
-      </footer>
+        {/* Content */}
+        {currentView === 'dashboard' && (
+          <main>
+            <ClientList
+              clients={clients}
+              reviews={reviews}
+              onAddClient={handleAddClient}
+              onAddReview={handleAddReview}
+              onDeleteClient={handleDeleteClient}
+              onDeleteReview={handleDeleteReview}
+              onStartReview={handleStartReview}
+            />
+          </main>
+        )}
+
+        {currentView === 'upload' && selectedReviewId && (
+          <main>
+            {(() => {
+              const selectedReview = reviews.find((r) => r.id === selectedReviewId);
+              if (!selectedReview) {
+                return <p>Review not found</p>;
+              }
+              return (
+                <ReviewUploadView
+                  review={selectedReview}
+                  onSaveHoldings={handleSaveHoldings}
+                  onBack={handleBackToDashboard}
+                />
+              );
+            })()}
+          </main>
+        )}
+      </div>
     </div>
   );
 }
