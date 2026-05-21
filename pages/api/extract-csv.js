@@ -62,8 +62,32 @@ export default async function handler(req, res) {
 
     console.log('[CSV_EXTRACT] Parsing CSV...');
 
-    // Parse CSV
-    const records = csvParse(csvContent, {
+    // Split by lines to find the header row
+    const lines = csvContent.split('\n').map(line => line.trim()).filter(line => line);
+
+    // Find the header row by looking for expected column keywords
+    let headerRowIndex = -1;
+    const headerKeywords = ['fund name', 'units', 'unit price', 'currency', 'no of units', 'qty', 'price'];
+
+    for (let i = 0; i < lines.length; i++) {
+      const lineContent = lines[i].toLowerCase();
+      const matchCount = headerKeywords.filter(keyword => lineContent.includes(keyword)).length;
+      if (matchCount >= 2) { // At least 2 keywords means this is likely the header row
+        headerRowIndex = i;
+        console.log('[CSV_EXTRACT] Found header row at index:', i);
+        break;
+      }
+    }
+
+    if (headerRowIndex === -1) {
+      throw new Error('Could not find header row. Expected columns: Fund Name, Units, Unit Price');
+    }
+
+    // Extract the CSV content from header row onwards
+    const csvContentFromHeader = lines.slice(headerRowIndex).join('\n');
+
+    // Parse CSV from the header row
+    const records = csvParse(csvContentFromHeader, {
       columns: true,
       skip_empty_lines: true,
     });
