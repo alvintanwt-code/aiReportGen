@@ -24,13 +24,18 @@ export const config = {
  */
 async function extractPortfolioFromImage(imageBuffer, mimeType) {
   console.log('[API/EXTRACT] Starting extraction, mimeType:', mimeType);
+  console.log('[API/EXTRACT] Image size:', imageBuffer.length, 'bytes');
 
   try {
     // Convert buffer to base64
+    console.log('[API/EXTRACT] Converting to base64...');
     const base64Image = imageBuffer.toString('base64');
+    console.log('[API/EXTRACT] Base64 length:', base64Image.length);
 
-    // Call Claude Vision API
-    const response = await client.messages.create({
+    // Call Claude Vision API with timeout
+    console.log('[API/EXTRACT] Calling Anthropic API...');
+    const response = await Promise.race([
+      client.messages.create({
       model: 'claude-opus-4-6',
       max_tokens: 2048,
       messages: [
@@ -72,7 +77,11 @@ IMPORTANT: Return ONLY the JSON array, no other text.`,
           ],
         },
       ],
-    });
+      }),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('API call timeout after 120 seconds')), 120000)
+      ),
+    ]);
 
     console.log('[API/EXTRACT] Got response from Claude');
 
