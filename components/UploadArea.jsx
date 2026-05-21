@@ -12,9 +12,12 @@ export default function UploadArea({ onUpload, isLoading }) {
   const handleFile = async (file) => {
     console.log('[UploadArea] handleFile:', file.name);
 
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      setError('Please upload an image file (JPG, PNG, etc.)');
+    // Check if it's an image or CSV file
+    const isImage = file.type.startsWith('image/');
+    const isCsv = file.type === 'text/csv' || file.name.toLowerCase().endsWith('.csv');
+
+    if (!isImage && !isCsv) {
+      setError('Please upload an image file (JPG, PNG) or CSV file');
       return;
     }
 
@@ -86,7 +89,7 @@ export default function UploadArea({ onUpload, isLoading }) {
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept="image/*,.csv"
           onChange={handleChange}
           style={{ display: 'none' }}
           disabled={isLoading}
@@ -104,13 +107,13 @@ export default function UploadArea({ onUpload, isLoading }) {
         ) : (
           <div>
             <p style={{ margin: '0', fontSize: '18px', fontWeight: 'bold' }}>
-              📸 Upload Portfolio Screenshot
+              📸 Upload Portfolio (Screenshot or CSV)
             </p>
             <p style={{ margin: '10px 0 0 0', color: '#666', fontSize: '14px' }}>
-              Drag and drop your screenshot here, or click to select a file
+              Drag and drop your file here, or click to select
             </p>
             <p style={{ margin: '10px 0 0 0', color: '#999', fontSize: '12px' }}>
-              Supported: JPG, PNG (max 10MB)
+              Supported: JPG, PNG, CSV (max 10MB)
             </p>
           </div>
         )}

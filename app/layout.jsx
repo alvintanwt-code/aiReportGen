@@ -1,7 +1,7 @@
 import './globals.css';
 
 export const metadata = {
-  title: 'AI Report Generator',
+  title: 'leet portfolio extractor',
   description: 'Portfolio review app for financial advisors',
 };
 

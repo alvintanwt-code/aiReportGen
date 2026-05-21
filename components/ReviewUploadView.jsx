@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import UploadArea from './UploadArea';
 import MultipleHoldingsSets from './MultipleHoldingsSets';
-import { extractPortfolioFromImage } from '../lib/extractionService';
+import { extractPortfolioFromImage, extractPortfolioFromCSV } from '../lib/extractionService';
 import { recalculatePortfolio } from '../lib/portfolioCalculations';
 
 // UUID generator
@@ -30,8 +30,21 @@ export default function ReviewUploadView({
     setError('');
 
     try {
-      // Call real extraction service (which calls backend)
-      const extractedHoldings = await extractPortfolioFromImage(file);
+      // Detect file type and call appropriate extraction service
+      const isImage = file.type.startsWith('image/');
+      const isCsv = file.type === 'text/csv' || file.name.toLowerCase().endsWith('.csv');
+
+      let extractedHoldings;
+      if (isImage) {
+        console.log('[ReviewUploadView] Extracting from image');
+        extractedHoldings = await extractPortfolioFromImage(file);
+      } else if (isCsv) {
+        console.log('[ReviewUploadView] Extracting from CSV');
+        extractedHoldings = await extractPortfolioFromCSV(file);
+      } else {
+        throw new Error('Unsupported file type');
+      }
+
       console.log('[ReviewUploadView] Got extracted holdings:', extractedHoldings);
 
       // Recalculate with initial values
@@ -46,7 +59,7 @@ export default function ReviewUploadView({
       setIsLoading(false);
     } catch (err) {
       console.error('[ReviewUploadView] Error during extraction:', err);
-      setError('Failed to extract portfolio holdings. Please try again.');
+      setError(`Failed to extract portfolio holdings: ${err.message}`);
       setIsLoading(false);
     }
   };
