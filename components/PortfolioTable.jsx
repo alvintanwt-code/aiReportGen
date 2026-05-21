@@ -48,6 +48,10 @@ export default function PortfolioTable({
       editingCell?.field === column.key;
     const value = holding[column.key];
 
+    if (editingCell) {
+      console.log('[PortfolioTable] editingCell state:', editingCell, 'holding.id:', holding.id, 'column.key:', column.key, 'isEditing:', isEditing);
+    }
+
     // Format display value
     let displayValue = value;
     if (column.type === 'number' && !column.readOnly) {
