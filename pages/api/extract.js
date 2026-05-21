@@ -108,10 +108,10 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
-      holdings: holdings.map(h => {
+      holdings: holdings.map((h, idx) => {
         const currency = String(h.currency || 'SGD').toUpperCase();
         return {
-          id: `h-${Date.now()}`,
+          id: `h-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 9)}`,
           fundName: String(h.fundName || 'Unknown').trim(),
           units: parseFloat(h.units) || 0,
           unitPrice: parseFloat(h.unitPrice) || 0,
