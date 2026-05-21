@@ -31,7 +31,7 @@ export default function PortfolioTable({
         : parseFloat(newValue) || 0;
 
     onHoldingChange(holdingId, field, parsedValue);
-    setEditingCell(null);
+    // Don't close the input here - onBlur and onKeyDown handle closing
   };
 
   const formatCurrency = (value) => {
