@@ -7,6 +7,22 @@ export const config = {
   },
 };
 
+// FX rates to SGD
+function getDefaultFxRate(currency) {
+  const rates = {
+    SGD: 1.0,
+    USD: 1.35,
+    EUR: 1.5,
+    GBP: 1.7,
+    JPY: 0.009,
+    CNY: 0.19,
+    HKD: 0.17,
+    AUD: 0.9,
+    CAD: 1.0,
+  };
+  return rates[currency.toUpperCase()] || 1.0;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -92,14 +108,17 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
-      holdings: holdings.map(h => ({
-        id: `h-${Date.now()}`,
-        fundName: String(h.fundName || 'Unknown').trim(),
-        units: parseFloat(h.units) || 0,
-        unitPrice: parseFloat(h.unitPrice) || 0,
-        currency: String(h.currency || 'SGD').toUpperCase(),
-        fxRateToSgd: 1.0,
-      })),
+      holdings: holdings.map(h => {
+        const currency = String(h.currency || 'SGD').toUpperCase();
+        return {
+          id: `h-${Date.now()}`,
+          fundName: String(h.fundName || 'Unknown').trim(),
+          units: parseFloat(h.units) || 0,
+          unitPrice: parseFloat(h.unitPrice) || 0,
+          currency: currency,
+          fxRateToSgd: getDefaultFxRate(currency),
+        };
+      }),
     });
   } catch (error) {
     console.error('[EXTRACT] Error:', error.message);
