@@ -1,6 +1,6 @@
 import { IncomingForm } from 'formidable';
 import fs from 'fs';
-import csv from 'csv-parse/sync';
+import { parse as csvParse } from 'csv-parse/sync';
 
 export const config = {
   api: {
@@ -63,7 +63,7 @@ export default async function handler(req, res) {
     console.log('[CSV_EXTRACT] Parsing CSV...');
 
     // Parse CSV
-    const records = csv.parse(csvContent, {
+    const records = csvParse(csvContent, {
       columns: true,
       skip_empty_lines: true,
     });
