@@ -4,7 +4,11 @@
  * Calls Claude Vision API to extract holdings from portfolio images
  */
 
-// Direct API call instead of SDK
+const Anthropic = require('@anthropic-ai/sdk').default;
+
+const client = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+});
 
 // Configure for large file uploads
 export const config = {
@@ -20,61 +24,60 @@ export const config = {
  */
 async function extractPortfolioFromImage(imageBuffer, mimeType) {
   console.log('[API/EXTRACT] Starting extraction, mimeType:', mimeType);
-  console.log('[API/EXTRACT] Image size:', imageBuffer.length, 'bytes');
 
   try {
     // Convert buffer to base64
-    console.log('[API/EXTRACT] Converting to base64...');
     const base64Image = imageBuffer.toString('base64');
-    console.log('[API/EXTRACT] Base64 length:', base64Image.length);
 
-    // Call Claude Vision API directly via fetch
-    console.log('[API/EXTRACT] Calling Anthropic API via fetch...');
+    // Call Claude Vision API
+    const response = await client.messages.create({
+      model: 'claude-opus-4-6',
+      max_tokens: 2048,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: {
+                type: 'base64',
+                media_type: mimeType,
+                data: base64Image,
+              },
+            },
+            {
+              type: 'text',
+              text: `Please analyze this portfolio screenshot and extract all holdings information.
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-opus-4-6',
-        max_tokens: 1024,
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'image',
-                source: {
-                  type: 'base64',
-                  media_type: mimeType,
-                  data: base64Image,
-                },
-              },
-              {
-                type: 'text',
-                text: 'Extract holdings from this portfolio screenshot. Return ONLY a JSON array of {fundName, units, unitPrice, currency}.',
-              },
-            ],
-          },
-        ],
-      }),
+For each holding, extract:
+- Fund/Stock Name
+- Number of Units held
+- Unit Price
+- Currency (SGD, USD, etc.)
+
+Return the response as a JSON array with this structure:
+[
+  {
+    "fundName": "Name of Fund/Stock",
+    "units": 1000,
+    "unitPrice": 145.50,
+    "currency": "USD"
+  },
+  ...
+]
+
+If any field is unclear or missing, use 0 or "Unknown" as a placeholder.
+IMPORTANT: Return ONLY the JSON array, no other text.`,
+            },
+          ],
+        },
+      ],
     });
 
-    console.log('[API/EXTRACT] Got response status:', response.status);
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(`Claude API error: ${response.status} - ${JSON.stringify(error)}`);
-    }
-
-    const data = await response.json();
     console.log('[API/EXTRACT] Got response from Claude');
 
     // Extract the text content from the response
-    let responseText = data.content[0].text;
+    let responseText = response.content[0].text;
 
     // Claude might wrap JSON in markdown code blocks, so extract it
     const jsonMatch = responseText.match(/```(?:json)?\n?([\s\S]*?)\n?```/);
