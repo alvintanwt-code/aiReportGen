@@ -4,7 +4,7 @@ import { useState } from 'react';
 
 export default function PortfolioTable({
   holdings,
-  totalPortfolioValueSgd,
+  setId,
   onHoldingChange,
 }) {
   const [editingCell, setEditingCell] = useState(null); // { holdingId, field }
@@ -12,14 +12,13 @@ export default function PortfolioTable({
   console.log('[PortfolioTable] Rendered with', holdings.length, 'holdings');
 
   const columns = [
-    { key: 'fundName', label: 'Fund Name', width: '200px' },
-    { key: 'units', label: 'Units', width: '80px', type: 'number' },
-    { key: 'unitPrice', label: 'Unit Price', width: '100px', type: 'number' },
-    { key: 'currency', label: 'Currency', width: '80px' },
-    { key: 'fxRateToSgd', label: 'FX Rate to SGD', width: '100px', type: 'number' },
-    { key: 'marketValueOriginal', label: 'Market Value (Original)', width: '140px', readOnly: true },
-    { key: 'marketValueSgd', label: 'Market Value (SGD)', width: '140px', readOnly: true },
-    { key: 'weightagePercent', label: 'Weightage %', width: '100px', readOnly: true },
+    { key: 'fundName', label: 'Fund Name', width: '220px' },
+    { key: 'units', label: 'Units', width: '100px', type: 'number' },
+    { key: 'unitPrice', label: 'Unit Price', width: '110px', type: 'number' },
+    { key: 'currency', label: 'Currency', width: '90px' },
+    { key: 'fxRateToSgd', label: 'FX Rate', width: '90px', type: 'number' },
+    { key: 'marketValueSgd', label: 'Market Value (SGD)', width: '150px', readOnly: true },
+    { key: 'weightagePercent', label: 'Weight %', width: '90px', readOnly: true },
   ];
 
   const handleCellChange = (holdingId, field, newValue) => {
@@ -30,16 +29,24 @@ export default function PortfolioTable({
         ? newValue
         : parseFloat(newValue) || 0;
 
-    onHoldingChange(holdingId, field, parsedValue);
-    // Don't close the input here - onBlur and onKeyDown handle closing
+    onHoldingChange(setId, holdingId, field, parsedValue);
   };
 
   const formatCurrency = (value) => {
+    return new Intl.NumberFormat('en-SG', {
+      style: 'currency',
+      currency: 'SGD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value || 0);
+  };
+
+  const formatNumber = (value) => {
     return Number(value || 0).toFixed(2);
   };
 
   const formatPercentage = (value) => {
-    return Number(value || 0).toFixed(2);
+    return Number(value || 0).toFixed(2) + '%';
   };
 
   const renderCell = (holding, column) => {
@@ -48,28 +55,26 @@ export default function PortfolioTable({
       editingCell?.field === column.key;
     const value = holding[column.key];
 
-    if (editingCell) {
-      console.log('[PortfolioTable] editingCell state:', editingCell, 'holding.id:', holding.id, 'column.key:', column.key, 'isEditing:', isEditing);
-    }
-
     // Format display value
     let displayValue = value;
     if (column.type === 'number' && !column.readOnly) {
-      displayValue = Number(value || 0).toFixed(2);
-    } else if (column.key === 'marketValueOriginal' || column.key === 'marketValueSgd') {
+      displayValue = formatNumber(value);
+    } else if (column.key === 'marketValueSgd') {
       displayValue = formatCurrency(value);
     } else if (column.key === 'weightagePercent') {
-      displayValue = formatPercentage(value) + '%';
+      displayValue = formatPercentage(value);
     }
 
     if (column.readOnly) {
       return (
         <div
           style={{
-            padding: '8px',
-            backgroundColor: '#f0f0f0',
-            borderRadius: '4px',
+            padding: '12px',
+            backgroundColor: '#f5f5f5',
+            borderRadius: '6px',
             textAlign: column.type === 'number' ? 'right' : 'left',
+            fontSize: '13px',
+            fontWeight: column.key === 'weightagePercent' ? '500' : '400',
           }}
         >
           {displayValue}
@@ -94,10 +99,11 @@ export default function PortfolioTable({
           autoFocus
           style={{
             width: '100%',
-            padding: '8px',
-            border: '2px solid #007bff',
-            borderRadius: '4px',
-            fontSize: '14px',
+            padding: '10px 12px',
+            border: '2px solid #1a1a1a',
+            borderRadius: '6px',
+            fontSize: '13px',
+            fontFamily: 'inherit',
             boxSizing: 'border-box',
           }}
         />
@@ -108,14 +114,14 @@ export default function PortfolioTable({
       <div
         onClick={() => setEditingCell({ holdingId: holding.id, field: column.key })}
         style={{
-          padding: '8px',
+          padding: '12px',
           cursor: 'pointer',
-          borderRadius: '4px',
+          borderRadius: '6px',
           textAlign: column.type === 'number' ? 'right' : 'left',
-          transition: 'background-color 0.2s',
-          '&:hover': { backgroundColor: '#f0f0f0' },
+          fontSize: '13px',
+          transition: 'background-color 0.2s ease',
         }}
-        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f0f0f0')}
+        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f8f8f8')}
         onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
       >
         {displayValue}
@@ -124,12 +130,10 @@ export default function PortfolioTable({
   };
 
   return (
-    <div style={{ marginBottom: '30px' }}>
-      <h3 style={{ marginBottom: '15px' }}>Portfolio Holdings</h3>
-
+    <div>
       {holdings.length === 0 ? (
-        <p style={{ color: '#666', textAlign: 'center', padding: '20px' }}>
-          No holdings to display
+        <p style={{ color: '#999', textAlign: 'center', padding: '32px 20px', fontSize: '14px' }}>
+          No holdings in this group
         </p>
       ) : (
         <div style={{ overflowX: 'auto' }}>
@@ -137,22 +141,22 @@ export default function PortfolioTable({
             style={{
               width: '100%',
               borderCollapse: 'collapse',
-              backgroundColor: 'white',
-              borderRadius: '8px',
-              overflow: 'hidden',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              backgroundColor: 'transparent',
             }}
           >
             <thead>
-              <tr style={{ backgroundColor: '#007bff', color: 'white' }}>
+              <tr style={{ backgroundColor: '#f5f5f5', borderBottom: '2px solid #e5e5e5' }}>
                 {columns.map((col) => (
                   <th
                     key={col.key}
                     style={{
-                      padding: '12px 8px',
-                      textAlign: 'left',
+                      padding: '12px',
+                      textAlign: col.type === 'number' ? 'right' : 'left',
                       fontSize: '12px',
-                      fontWeight: 'bold',
+                      fontWeight: '600',
+                      color: '#666',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.3px',
                       width: col.width,
                     }}
                   >
@@ -166,15 +170,22 @@ export default function PortfolioTable({
                 <tr
                   key={holding.id}
                   style={{
-                    backgroundColor: idx % 2 === 0 ? '#f9f9f9' : 'white',
-                    borderBottom: '1px solid #eee',
+                    backgroundColor: idx % 2 === 0 ? 'transparent' : '#fafafa',
+                    borderBottom: '1px solid #e5e5e5',
+                    transition: 'background-color 0.2s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = idx % 2 === 0 ? '#f8f8f8' : '#f5f5f5';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = idx % 2 === 0 ? 'transparent' : '#fafafa';
                   }}
                 >
                   {columns.map((col) => (
                     <td
                       key={`${holding.id}-${col.key}`}
                       style={{
-                        padding: '8px',
+                        padding: '0',
                         fontSize: '13px',
                       }}
                     >
@@ -188,39 +199,8 @@ export default function PortfolioTable({
         </div>
       )}
 
-      {holdings.length > 0 && (
-        <div
-          style={{
-            marginTop: '20px',
-            padding: '15px',
-            backgroundColor: '#e8f4f8',
-            borderRadius: '8px',
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: '15px',
-          }}
-        >
-          <div>
-            <p style={{ margin: '0 0 5px 0', color: '#666', fontSize: '12px' }}>
-              Total Portfolio Value (SGD)
-            </p>
-            <p style={{ margin: '0', fontSize: '20px', fontWeight: 'bold', color: '#007bff' }}>
-              SGD {formatCurrency(totalPortfolioValueSgd)}
-            </p>
-          </div>
-          <div>
-            <p style={{ margin: '0 0 5px 0', color: '#666', fontSize: '12px' }}>
-              Number of Holdings
-            </p>
-            <p style={{ margin: '0', fontSize: '20px', fontWeight: 'bold', color: '#007bff' }}>
-              {holdings.length}
-            </p>
-          </div>
-        </div>
-      )}
-
-      <p style={{ marginTop: '10px', color: '#999', fontSize: '12px' }}>
-        Click any cell to edit. Calculations update automatically.
+      <p style={{ marginTop: '16px', color: '#999', fontSize: '12px', textAlign: 'center' }}>
+        Click any cell to edit. Updates calculate instantly.
       </p>
     </div>
   );
