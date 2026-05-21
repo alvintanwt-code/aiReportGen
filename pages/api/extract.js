@@ -4,7 +4,7 @@
  * Calls Claude Vision API to extract holdings from portfolio images
  */
 
-const { Anthropic } = require('@anthropic-ai/sdk');
+import Anthropic from '@anthropic-ai/sdk';
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -211,7 +211,7 @@ async function parseFormData(req) {
 /**
  * API Handler
  */
-async function handler(req, res) {
+export default async function handler(req, res) {
   console.log('[API] Extract request received, method:', req.method);
 
   // Enable CORS
@@ -252,5 +252,3 @@ async function handler(req, res) {
     });
   }
 }
-
-module.exports = handler;
