@@ -40,6 +40,13 @@ function getDefaultFxRate(currency) {
   return rates[currency.toUpperCase()] || 1.0;
 }
 
+// Parse number that may have comma as thousands separator
+function parseNumber(value) {
+  if (!value) return 0;
+  // Remove commas and parse
+  return parseFloat(String(value).replace(/,/g, '')) || 0;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -130,20 +137,20 @@ export default async function handler(req, res) {
       .filter(
         (row) =>
           row[fundNameCol]?.trim() &&
-          parseFloat(row[unitsCol]) > 0 &&
-          parseFloat(row[priceCol]) > 0
+          parseNumber(row[unitsCol]) > 0 &&
+          parseNumber(row[priceCol]) > 0
       )
       .map((row, idx) => {
         const currency = (row[currencyCol] || 'SGD').toUpperCase().trim();
         const fxRate = fxRateCol
-          ? parseFloat(row[fxRateCol]) || getDefaultFxRate(currency)
+          ? parseNumber(row[fxRateCol]) || getDefaultFxRate(currency)
           : getDefaultFxRate(currency);
 
         return {
           id: `h-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 9)}`,
           fundName: String(row[fundNameCol]).trim(),
-          units: parseFloat(row[unitsCol]) || 0,
-          unitPrice: parseFloat(row[priceCol]) || 0,
+          units: parseNumber(row[unitsCol]),
+          unitPrice: parseNumber(row[priceCol]),
           currency: currency,
           fxRateToSgd: fxRate,
         };
