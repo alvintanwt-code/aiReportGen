@@ -17,7 +17,7 @@ function LandingPage({ clients, reviews, onAddClient, onSelectClient, onDeleteCl
 
   // Typing animation effect
   useEffect(() => {
-    const fullText = `Welcome, ${userName || 'Advisor'}`;
+    const fullText = `Hello, ${userName}`;
     let currentIndex = 0;
 
     const typingInterval = setInterval(() => {
