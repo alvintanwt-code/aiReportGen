@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { signUp, login, resetPassword } from '../lib/firebaseUtils';
 
 export default function LoginPage({ onAuthSuccess }) {
@@ -13,6 +13,24 @@ export default function LoginPage({ onAuthSuccess }) {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [resetMessage, setResetMessage] = useState('');
+  const [displayedText, setDisplayedText] = useState('');
+
+  // Typing animation effect
+  useEffect(() => {
+    const fullText = 'Welcome, Leet Advisor';
+    let currentIndex = 0;
+
+    const typingInterval = setInterval(() => {
+      if (currentIndex <= fullText.length) {
+        setDisplayedText(fullText.slice(0, currentIndex));
+        currentIndex++;
+      } else {
+        clearInterval(typingInterval);
+      }
+    }, 63); // ~63ms per character for natural typing pace
+
+    return () => clearInterval(typingInterval);
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -50,8 +68,27 @@ export default function LoginPage({ onAuthSuccess }) {
       <div style={{ width: '100%', maxWidth: '420px' }}>
         {/* Header */}
         <div style={{ marginBottom: '40px', textAlign: 'center' }}>
+          <style>{`
+            @keyframes typing-cursor {
+              0%, 49% { opacity: 1; }
+              50%, 100% { opacity: 0; }
+            }
+            .typing-text-login {
+              display: inline-block;
+              position: relative;
+            }
+            .typing-cursor-login {
+              animation: typing-cursor 0.6s infinite;
+              margin-left: 2px;
+            }
+          `}</style>
           <h1 style={{ fontSize: '42px', fontWeight: '700', margin: '0 0 16px 0', color: '#1a1a1a', letterSpacing: '-1px', fontFamily: "'Albra', sans-serif" }}>
-            Welcome
+            <span className="typing-text-login">
+              {displayedText}
+              {displayedText.length < 'Welcome, Leet Advisor'.length && (
+                <span className="typing-cursor-login">|</span>
+              )}
+            </span>
           </h1>
           <p style={{ fontSize: '16px', color: '#666', margin: '0', fontFamily: "'Poppins', sans-serif" }}>
             {isSignUp ? 'Create your account' : 'Sign in to your account'}
