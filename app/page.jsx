@@ -664,7 +664,7 @@ export default function Home() {
             onDeleteClient={handleDeleteClient}
             onNewReview={handleNewReview}
             onPastReviews={handlePastReviews}
-            userName={user?.displayName || 'Advisor'}
+            userName={user?.displayName || user?.email?.split('@')[0] || 'Advisor'}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
           />
