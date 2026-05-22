@@ -37,13 +37,13 @@ export default function MultipleHoldingsSets({
         <div
           style={{
             padding: '20px',
-            backgroundColor: '#e8f4f8',
+            backgroundColor: 'rgba(255, 255, 255, 0.15)',
             borderRadius: '8px',
             marginTop: '20px',
-            borderTop: '3px solid #007bff',
+            border: '1px solid #FF8F44',
           }}
         >
-          <h3 style={{ margin: '0 0 10px 0', color: '#007bff' }}>
+          <h3 style={{ margin: '0 0 10px 0', color: '#FF8F44' }}>
             Combined Portfolio Summary
           </h3>
           <div
@@ -62,7 +62,7 @@ export default function MultipleHoldingsSets({
                   margin: '0',
                   fontSize: '24px',
                   fontWeight: 'bold',
-                  color: '#007bff',
+                  color: '#FF8F44',
                 }}
               >
                 SGD {Number(combinedTotal || 0).toFixed(2)}
@@ -77,7 +77,7 @@ export default function MultipleHoldingsSets({
                   margin: '0',
                   fontSize: '24px',
                   fontWeight: 'bold',
-                  color: '#007bff',
+                  color: '#FF8F44',
                 }}
               >
                 {holdingsSets.length}

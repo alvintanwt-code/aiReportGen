@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
 * {
   margin: 0;
   padding: 0;
@@ -6,12 +8,150 @@
 
 html,
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   background-color: #ffffff;
   color: #1a1a1a;
   line-height: 1.6;
+}
+
+/* Albra Semi Font - Premium heading font */
+@font-face {
+  font-family: 'Albra';
+  src: url('https://cdn.jsdelivr.net/gh/finsweet/fonts@0.0.1/fonts/AlbraSemi.woff2') format('woff2');
+  font-weight: 600;
+  font-display: swap;
+}
+
+/* Northern Lights Gradient */
+.gradient-northern-lights {
+  background: radial-gradient(ellipse at 20% 50%, rgba(255, 200, 220, 0.4) 0%, transparent 40%),
+              radial-gradient(ellipse at 80% 80%, rgba(220, 180, 240, 0.3) 0%, transparent 40%),
+              radial-gradient(ellipse at 50% 0%, rgba(240, 200, 180, 0.3) 0%, transparent 50%),
+              linear-gradient(135deg, #faf8f3 0%, #f5e6d3 100%);
+  background-attachment: fixed;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Animations */
+@keyframes checkmarkGrow {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes errorXGrow {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes checkmarkGlow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(26, 107, 53, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(26, 107, 53, 0.8);
+  }
+}
+
+@keyframes fadeInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes inputPulse {
+  0%, 100% {
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+  50% {
+    background-color: rgba(255, 255, 255, 0.08);
+  }
+}
+
+@keyframes uploadGlow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 163, 102, 0.7);
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+  50% {
+    box-shadow: 0 0 30px 10px rgba(255, 163, 102, 0.4);
+    background-color: rgba(255, 163, 102, 0.1);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 163, 102, 0);
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+}
+
+/* Responsive Card Grid */
+.client-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, 320px);
+  gap: 20px;
+}
+
+/* Large screens: 4+ cards per row */
+@media (min-width: 1400px) {
+  .client-cards-grid {
+    grid-template-columns: repeat(4, 320px);
+  }
+}
+
+/* Medium screens: 3 cards per row */
+@media (max-width: 1200px) {
+  .client-cards-grid {
+    grid-template-columns: repeat(3, 320px);
+  }
+}
+
+/* Tablet: 2 cards per row */
+@media (max-width: 768px) {
+  .client-cards-grid {
+    grid-template-columns: repeat(2, 320px);
+  }
+}
+
+/* Mobile: 1 card per row */
+@media (max-width: 480px) {
+  .client-cards-grid {
+    grid-template-columns: 320px;
+  }
 }
 
 /* Typography */

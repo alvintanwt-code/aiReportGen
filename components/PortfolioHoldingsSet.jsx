@@ -26,9 +26,9 @@ export default function PortfolioHoldingsSet({
       style={{
         marginBottom: '30px',
         padding: '20px',
-        border: '2px solid #007bff',
+        border: '1px solid #FF8F44',
         borderRadius: '8px',
-        backgroundColor: '#f0f8ff',
+        backgroundColor: 'rgba(255, 255, 255, 0.15)',
       }}
     >
       <div
@@ -48,38 +48,59 @@ export default function PortfolioHoldingsSet({
               placeholder="Portfolio name (e.g., HSBC)"
               autoFocus
               style={{
-                padding: '8px',
-                border: '2px solid #007bff',
-                borderRadius: '4px',
-                fontSize: '16px',
-                fontWeight: 'bold',
+                padding: '14px 24px',
+                border: '1px solid rgba(255, 255, 255, 0.8)',
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                backdropFilter: 'blur(20px)',
+                borderRadius: '45px',
+                fontSize: '14px',
                 boxSizing: 'border-box',
+                outline: 'none',
+                color: '#1a1a1a',
+                fontFamily: "'Poppins', sans-serif",
+                transition: 'all 0.2s ease',
               }}
             />
             <button
               onClick={handleNameSave}
               style={{
-                padding: '8px 16px',
-                backgroundColor: '#28a745',
+                padding: '10px 24px',
+                backgroundColor: '#FFA366',
                 color: 'white',
                 border: 'none',
-                borderRadius: '4px',
+                borderRadius: '45px',
                 cursor: 'pointer',
                 fontSize: '14px',
+                fontWeight: '400',
+                transition: 'background-color 0.2s ease',
+                fontFamily: "'Poppins', sans-serif",
+                boxShadow: 'none',
               }}
+              onMouseEnter={(e) => e.target.style.backgroundColor = '#FF8F44'}
+              onMouseLeave={(e) => e.target.style.backgroundColor = '#FFA366'}
             >
               Save
             </button>
             <button
               onClick={() => setIsEditingName(false)}
               style={{
-                padding: '8px 16px',
-                backgroundColor: '#999',
+                padding: '10px 24px',
+                backgroundColor: 'rgba(192, 57, 43, 0.2)',
                 color: 'white',
                 border: 'none',
-                borderRadius: '4px',
+                borderRadius: '45px',
                 cursor: 'pointer',
                 fontSize: '14px',
+                fontWeight: '400',
+                transition: 'background-color 0.2s ease',
+                fontFamily: "'Poppins', sans-serif",
+                boxShadow: 'none',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(192, 57, 43, 0.35)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(192, 57, 43, 0.2)';
               }}
             >
               Cancel

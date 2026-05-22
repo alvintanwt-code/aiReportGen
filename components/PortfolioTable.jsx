@@ -137,14 +137,14 @@ export default function PortfolioTable({
             style={{
               width: '100%',
               borderCollapse: 'collapse',
-              backgroundColor: 'white',
+              backgroundColor: 'rgba(255, 163, 102, 0.08)',
               borderRadius: '8px',
               overflow: 'hidden',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
             }}
           >
             <thead>
-              <tr style={{ backgroundColor: '#007bff', color: 'white' }}>
+              <tr style={{ backgroundColor: '#FF8F44', color: 'white' }}>
                 {columns.map((col) => (
                   <th
                     key={col.key}
@@ -166,8 +166,8 @@ export default function PortfolioTable({
                 <tr
                   key={holding.id}
                   style={{
-                    backgroundColor: idx % 2 === 0 ? '#f9f9f9' : 'white',
-                    borderBottom: '1px solid #eee',
+                    backgroundColor: idx % 2 === 0 ? '#f5f5f5' : '#fafafa',
+                    borderBottom: '1px solid #e8e8e8',
                   }}
                 >
                   {columns.map((col) => (
@@ -193,7 +193,7 @@ export default function PortfolioTable({
           style={{
             marginTop: '20px',
             padding: '15px',
-            backgroundColor: '#e8f4f8',
+            backgroundColor: 'rgba(255, 163, 102, 0.1)',
             borderRadius: '8px',
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
@@ -204,7 +204,7 @@ export default function PortfolioTable({
             <p style={{ margin: '0 0 5px 0', color: '#666', fontSize: '12px' }}>
               Total Portfolio Value (SGD)
             </p>
-            <p style={{ margin: '0', fontSize: '20px', fontWeight: 'bold', color: '#007bff' }}>
+            <p style={{ margin: '0', fontSize: '20px', fontWeight: 'bold', color: '#FF8F44' }}>
               SGD {formatCurrency(totalPortfolioValueSgd)}
             </p>
           </div>
@@ -212,7 +212,7 @@ export default function PortfolioTable({
             <p style={{ margin: '0 0 5px 0', color: '#666', fontSize: '12px' }}>
               Number of Holdings
             </p>
-            <p style={{ margin: '0', fontSize: '20px', fontWeight: 'bold', color: '#007bff' }}>
+            <p style={{ margin: '0', fontSize: '20px', fontWeight: 'bold', color: '#FF8F44' }}>
               {holdings.length}
             </p>
           </div>

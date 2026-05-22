@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 
-export default function UploadArea({ onUpload, isLoading }) {
+export default function UploadArea({ onUpload, isLoading, shouldFlash }) {
   const fileInputRef = useRef(null);
   const [dragActive, setDragActive] = useState(false);
   const [error, setError] = useState('');
@@ -76,14 +76,16 @@ export default function UploadArea({ onUpload, isLoading }) {
         onDrop={handleDrop}
         onClick={handleClick}
         style={{
-          border: '2px dashed ' + (dragActive ? '#007bff' : '#ccc'),
-          borderRadius: '8px',
+          border: '2px dashed ' + (dragActive ? '#007bff' : '#888888'),
+          borderRadius: '45px',
           padding: '40px',
           textAlign: 'center',
-          backgroundColor: dragActive ? '#e8f4f8' : '#f9f9f9',
+          backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255, 255, 255, 0.15) 2px, rgba(255, 255, 255, 0.15) 4px)',
+          backgroundColor: dragActive ? 'rgba(232, 244, 248, 0.05)' : 'rgba(255, 255, 255, 0.05)',
           cursor: isLoading ? 'wait' : 'pointer',
           transition: 'all 0.2s ease',
           opacity: isLoading ? 0.7 : 1,
+          animation: shouldFlash ? 'uploadGlow 0.7s ease-out' : 'none',
         }}
       >
         <input
