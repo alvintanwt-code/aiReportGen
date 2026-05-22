@@ -76,13 +76,14 @@ export default function LoginPage({ onAuthSuccess }) {
             .typing-text-login {
               display: inline-block;
               position: relative;
+              white-space: nowrap;
             }
             .typing-cursor-login {
               animation: typing-cursor 0.6s infinite;
               margin-left: 2px;
             }
           `}</style>
-          <h1 style={{ fontSize: '42px', fontWeight: '700', margin: '0 0 16px 0', color: '#1a1a1a', letterSpacing: '-1px', fontFamily: "'Albra', sans-serif" }}>
+          <h1 style={{ fontSize: '42px', fontWeight: '700', margin: '0 0 16px 0', color: '#1a1a1a', letterSpacing: '-1px', fontFamily: "'Albra', sans-serif", whiteSpace: 'nowrap', minHeight: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <span className="typing-text-login">
               {displayedText}
               {displayedText.length < 'Welcome, Leet Advisor'.length && (
