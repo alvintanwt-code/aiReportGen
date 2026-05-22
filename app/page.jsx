@@ -5,7 +5,7 @@ import { reload } from 'firebase/auth';
 import ReviewUploadView from '../components/ReviewUploadView';
 import LoginPage from '../components/LoginPage';
 import { getInitialClients, getInitialReviews } from '../lib/mockData';
-import { onAuthChange, logout, saveClients, loadClients, saveReviews, loadReviews } from '../lib/firebaseUtils';
+import { onAuthChange, logout, saveClients, loadClients, saveReviews, loadReviews, getUserProfile } from '../lib/firebaseUtils';
 import { auth } from '../lib/firebase';
 
 // Simple UUID generator
@@ -371,6 +371,7 @@ function LandingPage({ clients, reviews, onAddClient, onSelectClient, onDeleteCl
 
 export default function Home() {
   const [user, setUser] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [clients, setClients] = useState([]);
   const [reviews, setReviews] = useState([]);
@@ -394,6 +395,11 @@ export default function Home() {
         await reload(currentUser);
         console.log('[App] User displayName:', currentUser.displayName);
 
+        // Get user profile from Firestore
+        const profile = await getUserProfile(currentUser.uid);
+        console.log('[App] User profile:', profile);
+        setUserProfile(profile);
+
         // User is logged in - load their data from Firebase
         console.log('[App] Loading data from Firebase for user:', currentUser.uid);
         const savedClients = await loadClients(currentUser.uid);
@@ -402,6 +408,8 @@ export default function Home() {
         console.log('[App] Loaded', savedClients.length, 'clients and', savedReviews.length, 'reviews');
         setClients(savedClients);
         setReviews(savedReviews);
+      } else {
+        setUserProfile(null);
       }
 
       setUser(currentUser);
@@ -664,7 +672,7 @@ export default function Home() {
             onDeleteClient={handleDeleteClient}
             onNewReview={handleNewReview}
             onPastReviews={handlePastReviews}
-            userName={user?.displayName || user?.email?.split('@')[0] || 'Advisor'}
+            userName={userProfile?.displayName || user?.displayName || user?.email?.split('@')[0] || 'Advisor'}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
           />
