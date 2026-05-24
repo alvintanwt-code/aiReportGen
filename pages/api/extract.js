@@ -7,22 +7,6 @@ export const config = {
   },
 };
 
-// FX rates to SGD
-function getDefaultFxRate(currency) {
-  const rates = {
-    SGD: 1.0,
-    USD: 1.35,
-    EUR: 1.5,
-    GBP: 1.7,
-    JPY: 0.009,
-    CNY: 0.19,
-    HKD: 0.17,
-    AUD: 0.9,
-    CAD: 1.0,
-  };
-  return rates[currency.toUpperCase()] || 1.0;
-}
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -31,7 +15,6 @@ export default async function handler(req, res) {
   try {
     console.log('[EXTRACT] Request received');
 
-    // Parse multipart form
     const form = new IncomingForm();
     const [fields, files] = await form.parse(req);
 
@@ -45,10 +28,8 @@ export default async function handler(req, res) {
     const mimeType = file.mimetype || 'image/jpeg';
     const base64 = imageBuffer.toString('base64');
 
-    console.log('[EXTRACT] Image ready:', base64.length, 'chars');
+    console.log('[EXTRACT] Image ready');
 
-    // Call Anthropic API directly with fetch
-    console.log('[EXTRACT] Calling Anthropic API...');
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -58,7 +39,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: 'claude-opus-4-6',
-        max_tokens: 1024,
+        max_tokens: 4096,
         messages: [
           {
             role: 'user',
@@ -73,7 +54,40 @@ export default async function handler(req, res) {
               },
               {
                 type: 'text',
-                text: 'Extract all investment holdings from this portfolio screenshot. Return ONLY a JSON array with objects containing: fundName, units, unitPrice, currency. No markdown, no explanation.',
+                text: `You are an expert at reading financial tables with precision. Extract portfolio holdings with ABSOLUTE accuracy.
+
+STEP 1: Locate the "Fx Rate" column header in the table. This column contains exchange rates.
+
+STEP 2: For each row in the table, read the values in this EXACT order:
+1. Fund Name (leftmost column)
+2. Currency (e.g., USD, SGD, EUR)
+3. Unit (quantity)
+4. Unit Price
+5. Fx Rate (READ EVERY CHARACTER including all decimal places - these are typically 4-6 decimal numbers like 1.27959, 1.48520, 1.00000)
+
+STEP 3: CRITICAL - When reading Fx Rate values:
+- Read character by character: digit, dot, digit, digit, digit, digit, digit
+- Examples of correct reading: 1.27959, 1.48520, 1.00000, 0.95234
+- DO NOT round to 1.3, 1.35, 1.5, or 1.0
+- If you see "1.27959" → return 1.27959 exactly
+- If you see "1.48520" → return 1.48520 exactly
+
+STEP 4: Return ONLY valid JSON array (no markdown, no explanation):
+[
+  {
+    "fundName": "exact fund name",
+    "currency": "USD",
+    "units": exact number,
+    "unitPrice": exact number,
+    "fxRateToSgd": exact FX rate with all decimals (e.g., 1.27959, NOT 1.3)
+  }
+]
+
+CRITICAL REMINDERS:
+- Preserve ALL decimal places in Fx Rate
+- Do not round, truncate, or approximate
+- If uncertain about a digit, say so in a separate field but best guess
+- Focus on accuracy over speed`,
               },
             ],
           },
@@ -92,33 +106,30 @@ export default async function handler(req, res) {
     const data = await response.json();
     let text = data.content[0].text;
 
-    console.log('[EXTRACT] Got response, parsing...');
+    console.log('[EXTRACT] Claude response received');
 
-    // Extract JSON if wrapped in markdown
-    const jsonMatch = text.match(/```(?:json)?\n?([\s\S]*?)\n?```/);
-    if (jsonMatch) {
-      console.log('[EXTRACT] Found markdown wrapper');
-      text = jsonMatch[1].trim();
+    // Extract JSON
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) {
+      throw new Error('Could not find JSON in response');
     }
 
-    let holdings = JSON.parse(text);
+    let holdings = JSON.parse(jsonMatch[0]);
     if (!Array.isArray(holdings)) holdings = [holdings];
 
     console.log('[EXTRACT] Extracted', holdings.length, 'holdings');
+    console.log('[EXTRACT] FX Rates:', holdings.map(h => `${h.fundName.substring(0, 20)}: ${h.fxRateToSgd}`));
 
     return res.status(200).json({
       success: true,
-      holdings: holdings.map((h, idx) => {
-        const currency = String(h.currency || 'SGD').toUpperCase();
-        return {
-          id: `h-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 9)}`,
-          fundName: String(h.fundName || 'Unknown').trim(),
-          units: parseFloat(h.units) || 0,
-          unitPrice: parseFloat(h.unitPrice) || 0,
-          currency: currency,
-          fxRateToSgd: getDefaultFxRate(currency),
-        };
-      }),
+      holdings: holdings.map((h, idx) => ({
+        id: `h-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 9)}`,
+        fundName: String(h.fundName || 'Unknown').trim(),
+        units: parseFloat(h.units) || 0,
+        unitPrice: parseFloat(h.unitPrice) || 0,
+        currency: String(h.currency || 'SGD').toUpperCase(),
+        fxRateToSgd: parseFloat(h.fxRateToSgd) || 0, // NO DEFAULT - use exactly what Claude extracted
+      })),
     });
   } catch (error) {
     console.error('[EXTRACT] Error:', error.message);
