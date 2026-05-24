@@ -6,6 +6,7 @@ export default function PortfolioTable({
   holdings,
   totalPortfolioValueSgd,
   onHoldingChange,
+  onHoldingDelete,
 }) {
   const [editingCell, setEditingCell] = useState(null); // { holdingId, field }
 
@@ -20,6 +21,7 @@ export default function PortfolioTable({
     { key: 'marketValueOriginal', label: 'Market Value (Original)', width: '140px', readOnly: true },
     { key: 'marketValueSgd', label: 'Market Value (SGD)', width: '140px', readOnly: true },
     { key: 'weightagePercent', label: 'Weightage %', width: '100px', readOnly: true },
+    { key: 'action', label: 'Action', width: '60px', isAction: true },
   ];
 
   const handleCellChange = (holdingId, field, newValue) => {
@@ -34,6 +36,21 @@ export default function PortfolioTable({
     // Don't close the input here - onBlur and onKeyDown handle closing
   };
 
+  const handleDeleteHolding = (holding) => {
+    // Smart prompt: if units are 0, offer special message
+    const units = parseFloat(holding.units) || 0;
+
+    if (units === 0) {
+      if (window.confirm(`"${holding.fundName}" has 0 Units.\n\nProceed to remove this fund?`)) {
+        onHoldingDelete(holding.id);
+      }
+    } else {
+      if (window.confirm(`Remove "${holding.fundName}"?`)) {
+        onHoldingDelete(holding.id);
+      }
+    }
+  };
+
   const formatCurrency = (value) => {
     return Number(value || 0).toFixed(2);
   };
@@ -43,6 +60,32 @@ export default function PortfolioTable({
   };
 
   const renderCell = (holding, column) => {
+    // Handle action column (delete button)
+    if (column.isAction) {
+      return (
+        <button
+          onClick={() => handleDeleteHolding(holding)}
+          title="Delete this fund"
+          style={{
+            padding: '6px 12px',
+            backgroundColor: '#dc3545',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '12px',
+            fontWeight: '600',
+            transition: 'background-color 0.2s ease',
+            whiteSpace: 'nowrap',
+          }}
+          onMouseEnter={(e) => (e.target.style.backgroundColor = '#c82333')}
+          onMouseLeave={(e) => (e.target.style.backgroundColor = '#dc3545')}
+        >
+          Delete
+        </button>
+      );
+    }
+
     const isEditing =
       editingCell?.holdingId === holding.id &&
       editingCell?.field === column.key;
@@ -220,7 +263,7 @@ export default function PortfolioTable({
       )}
 
       <p style={{ marginTop: '10px', color: '#999', fontSize: '12px' }}>
-        Click any cell to edit. Calculations update automatically.
+        💡 Click any cell to edit. Use the Delete button to remove funds (especially those with 0 Units). Calculations update automatically.
       </p>
     </div>
   );

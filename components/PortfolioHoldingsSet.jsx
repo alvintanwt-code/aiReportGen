@@ -8,6 +8,7 @@ export default function PortfolioHoldingsSet({
   onNameChange,
   onHoldingChange,
   onDelete,
+  onHoldingDelete,
 }) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState(holdingsSet.name);
@@ -151,6 +152,9 @@ export default function PortfolioHoldingsSet({
         totalPortfolioValueSgd={holdingsSet.totalPortfolioValueSgd}
         onHoldingChange={(holdingId, field, value) => {
           onHoldingChange(holdingsSet.id, holdingId, field, value);
+        }}
+        onHoldingDelete={(holdingId) => {
+          onHoldingDelete(holdingsSet.id, holdingId);
         }}
       />
     </div>

@@ -7,6 +7,7 @@ export default function MultipleHoldingsSets({
   onNameChange,
   onHoldingChange,
   onDeleteSet,
+  onHoldingDelete,
 }) {
   console.log('[MultipleHoldingsSets] Rendered with', holdingsSets.length, 'sets');
 
@@ -30,6 +31,7 @@ export default function MultipleHoldingsSets({
           onNameChange={onNameChange}
           onHoldingChange={onHoldingChange}
           onDelete={onDeleteSet}
+          onHoldingDelete={onHoldingDelete}
         />
       ))}
 

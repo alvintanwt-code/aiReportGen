@@ -3,8 +3,10 @@
 import { useState, useEffect } from 'react';
 import UploadArea from './UploadArea';
 import MultipleHoldingsSets from './MultipleHoldingsSets';
+import ReportDetailsForm from './ReportDetailsForm';
 import { extractPortfolioFromImage, extractPortfolioFromCSV } from '../lib/extractionService';
 import { recalculatePortfolio } from '../lib/portfolioCalculations';
+import { downloadReport, openReportInNewWindow } from '../lib/reportGenerationService';
 
 // UUID generator
 const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -31,6 +33,7 @@ export default function ReviewUploadView({
   const [reviewName, setReviewName] = useState(review.reviewName || '');
   const [isEditingReviewName, setIsEditingReviewName] = useState(false);
   const [showReviewNamePrompt, setShowReviewNamePrompt] = useState(!review.reviewName);
+  const [showReportForm, setShowReportForm] = useState(false);
 
   // Update state when review prop changes
   useEffect(() => {
@@ -180,6 +183,30 @@ export default function ReviewUploadView({
     setHoldingsSets(updatedSets);
   };
 
+  const handleDeleteHolding = (setId, holdingId) => {
+    console.log('[ReviewUploadView] handleDeleteHolding:', { setId, holdingId });
+
+    // Find the holdings set and remove the holding from it
+    const updatedSets = holdingsSets.map((set) => {
+      if (set.id !== setId) return set;
+
+      // Remove the holding from this set
+      const updatedHoldings = set.holdings.filter((h) => h.id !== holdingId);
+
+      // Recalculate the portfolio with updated holdings
+      const { holdings: recalculatedHoldings, totalPortfolioValueSgd: total } =
+        recalculatePortfolio(updatedHoldings);
+
+      return {
+        ...set,
+        holdings: recalculatedHoldings,
+        totalPortfolioValueSgd: total,
+      };
+    });
+
+    setHoldingsSets(updatedSets);
+  };
+
   const handleSave = () => {
     console.log('[ReviewUploadView] Saving all holdings sets, count:', holdingsSets.length);
 
@@ -189,6 +216,36 @@ export default function ReviewUploadView({
     }
 
     onSaveHoldings(holdingsSets, reviewName);
+  };
+
+  const handleGenerateReportClick = () => {
+    console.log('[ReviewUploadView] Generate Report clicked, opening form');
+    setShowReportForm(true);
+  };
+
+  const handleReportFormCancel = () => {
+    console.log('[ReviewUploadView] Report form cancelled');
+    setShowReportForm(false);
+  };
+
+  const handleReportGenerated = (reportData) => {
+    console.log('[ReviewUploadView] Report generated with data:', reportData);
+
+    try {
+      // Open report in new window for preview/printing
+      openReportInNewWindow(reportData, holdingsSets);
+
+      // Also trigger download
+      setTimeout(() => {
+        downloadReport(reportData, holdingsSets);
+      }, 500);
+
+      setShowReportForm(false);
+      setError(''); // Clear any previous errors
+    } catch (err) {
+      console.error('[ReviewUploadView] Error generating report:', err);
+      setError(`Failed to generate report: ${err.message}`);
+    }
   };
 
   // Get all reviews for this client (sorted by creation date descending, latest first)
@@ -749,6 +806,7 @@ export default function ReviewUploadView({
                   onNameChange={handleNameChange}
                   onHoldingChange={handleHoldingChange}
                   onDeleteSet={handleDeleteSet}
+                  onHoldingDelete={handleDeleteHolding}
                 />
               </div>
             )}
@@ -821,10 +879,7 @@ export default function ReviewUploadView({
                     Save All Portfolios
                   </button>
                   <button
-                    onClick={() => {
-                      console.log('[ReviewUploadView] Generate Report clicked');
-                      // TODO: Implement report generation
-                    }}
+                    onClick={handleGenerateReportClick}
                     style={{
                       padding: '10px 24px',
                       backgroundColor: '#9b59b6',
@@ -858,6 +913,51 @@ export default function ReviewUploadView({
             )}
           </div>
         </div>
+
+        {/* Report Details Form Modal */}
+        {showReportForm && (
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1000,
+              padding: '20px',
+              overflow: 'auto',
+            }}
+            onClick={(e) => {
+              // Close modal if clicking on backdrop
+              if (e.target === e.currentTarget) {
+                handleReportFormCancel();
+              }
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: 'white',
+                borderRadius: '12px',
+                maxWidth: '900px',
+                width: '100%',
+                maxHeight: '90vh',
+                overflow: 'auto',
+                boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+              }}
+            >
+              <ReportDetailsForm
+                clientName={clientName}
+                holdingsSets={holdingsSets}
+                onGenerateReport={handleReportGenerated}
+                onCancel={handleReportFormCancel}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
