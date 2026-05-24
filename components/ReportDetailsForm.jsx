@@ -26,8 +26,17 @@ export default function ReportDetailsForm({
       policyNumber: '',
       startDate: new Date().toISOString().split('T')[0],
       policyholderName: clientName || '',
-      initialCapital: '',
       accountProvider: '',
+      // Investment Type
+      investmentType: 'lumpsum', // 'lumpsum' or 'regular'
+      // Lump Sum fields
+      initialCapital: '',
+      totalTopUps: '',
+      // Regular Subscription fields
+      premiumFrequency: 'annual', // 'annual' or 'monthly'
+      premiumAmount: '',
+      regularTopUps: '',
+      regularWithdrawals: '',
     }))
   );
 
@@ -61,6 +70,17 @@ export default function ReportDetailsForm({
       accountsData.forEach((account, idx) => {
         if (!account.name.trim()) newErrors[`account_${idx}_name`] = 'Account name is required';
         if (!account.policyholderName.trim()) newErrors[`account_${idx}_policyholder`] = 'Policyholder name is required';
+
+        // Validate investment-type-specific fields
+        if (account.investmentType === 'lumpsum') {
+          if (!account.initialCapital && account.initialCapital !== 0) {
+            newErrors[`account_${idx}_initialCapital`] = 'Initial capital is required';
+          }
+        } else if (account.investmentType === 'regular') {
+          if (!account.premiumAmount && account.premiumAmount !== 0) {
+            newErrors[`account_${idx}_premiumAmount`] = 'Premium amount is required';
+          }
+        }
       });
     }
 
@@ -100,6 +120,15 @@ export default function ReportDetailsForm({
 
   const handleGenerateReport = () => {
     if (validateStep(step)) {
+      // Prepare comprehensive account data with investment details
+      const enrichedAccounts = accountsData.map((account) => ({
+        ...account,
+        investmentSummary:
+          account.investmentType === 'lumpsum'
+            ? `Lump Sum: Initial Capital SGD ${parseFloat(account.initialCapital || 0).toLocaleString()} + Top Ups SGD ${parseFloat(account.totalTopUps || 0).toLocaleString()}`
+            : `Regular ${account.premiumFrequency === 'annual' ? 'Annual' : 'Monthly'} Premium: SGD ${parseFloat(account.premiumAmount || 0).toLocaleString()}${account.regularTopUps ? ` + Top Ups SGD ${parseFloat(account.regularTopUps).toLocaleString()}` : ''}${account.regularWithdrawals ? ` - Withdrawals SGD ${parseFloat(account.regularWithdrawals).toLocaleString()}` : ''}`,
+      }));
+
       const reportData = {
         clientDetails: {
           fullName: clientFullName,
@@ -108,7 +137,7 @@ export default function ReportDetailsForm({
           primaryAdvisor,
           secondaryAdvisor: secondaryAdvisor || null,
         },
-        accounts: accountsData,
+        accounts: enrichedAccounts,
         performance: performanceData,
         branding: {
           companyName,
@@ -353,51 +382,208 @@ export default function ReportDetailsForm({
                 )}
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>
-                    Initial Capital (SGD)
-                  </label>
-                  <input
-                    type="number"
-                    value={account.initialCapital}
-                    onChange={(e) => handleAccountChange(idx, 'initialCapital', parseFloat(e.target.value) || '')}
-                    placeholder="e.g., 100000"
-                    style={{
-                      padding: '12px 16px',
-                      fontSize: '15px',
-                      border: '1px solid #ddd',
-                      borderRadius: '8px',
-                      outline: 'none',
-                    }}
-                  />
-                </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px' }}>
+                <label style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>
+                  Account Provider
+                </label>
+                <select
+                  value={account.accountProvider}
+                  onChange={(e) => handleAccountChange(idx, 'accountProvider', e.target.value)}
+                  style={{
+                    padding: '12px 16px',
+                    fontSize: '15px',
+                    border: '1px solid #ddd',
+                    borderRadius: '8px',
+                    outline: 'none',
+                    backgroundColor: 'white',
+                  }}
+                >
+                  <option value="">Select Provider</option>
+                  <option value="aia">AIA</option>
+                  <option value="etiqa">Etiqa</option>
+                  <option value="fwd">FWD</option>
+                  <option value="hsbc-life">HSBC Life</option>
+                  <option value="income">Income</option>
+                  <option value="manulife">Manulife</option>
+                  <option value="singlife">Singlife</option>
+                  <option value="tokiomarine">Tokiomarine</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>
-                    Account Provider
+              {/* Investment Type Selection */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '20px' }}>
+                <label style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>
+                  Investment Type *
+                </label>
+                <div style={{ display: 'flex', gap: '16px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px' }}>
+                    <input
+                      type="radio"
+                      name={`investmentType_${idx}`}
+                      value="lumpsum"
+                      checked={account.investmentType === 'lumpsum'}
+                      onChange={(e) => handleAccountChange(idx, 'investmentType', e.target.value)}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    Lump Sum
                   </label>
-                  <select
-                    value={account.accountProvider}
-                    onChange={(e) => handleAccountChange(idx, 'accountProvider', e.target.value)}
-                    style={{
-                      padding: '12px 16px',
-                      fontSize: '15px',
-                      border: '1px solid #ddd',
-                      borderRadius: '8px',
-                      outline: 'none',
-                      backgroundColor: 'white',
-                    }}
-                  >
-                    <option value="">Select Provider</option>
-                    <option value="hsbc">HSBC</option>
-                    <option value="tokio-marine">TOKIO MARINE</option>
-                    <option value="philip-capital">PHILIP CAPITAL</option>
-                    <option value="aia">AIA</option>
-                    <option value="other">Other</option>
-                  </select>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px' }}>
+                    <input
+                      type="radio"
+                      name={`investmentType_${idx}`}
+                      value="regular"
+                      checked={account.investmentType === 'regular'}
+                      onChange={(e) => handleAccountChange(idx, 'investmentType', e.target.value)}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    Regular Subscription
+                  </label>
                 </div>
               </div>
+
+              {/* LUMP SUM Fields */}
+              {account.investmentType === 'lumpsum' && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px', padding: '16px', backgroundColor: '#e8f4f8', borderRadius: '8px', borderLeft: '4px solid #0288d1' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>
+                      Initial Capital (SGD) *
+                    </label>
+                    <input
+                      type="number"
+                      value={account.initialCapital}
+                      onChange={(e) => handleAccountChange(idx, 'initialCapital', parseFloat(e.target.value) || '')}
+                      placeholder="e.g., 100000"
+                      style={{
+                        padding: '12px 16px',
+                        fontSize: '15px',
+                        border: `1px solid ${errors[`account_${idx}_initialCapital`] ? '#dc3545' : '#ddd'}`,
+                        borderRadius: '8px',
+                        outline: 'none',
+                      }}
+                    />
+                    {errors[`account_${idx}_initialCapital`] && (
+                      <p style={{ color: '#dc3545', fontSize: '12px', margin: '4px 0 0 0' }}>
+                        {errors[`account_${idx}_initialCapital`]}
+                      </p>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>
+                      Total Top Ups (SGD)
+                    </label>
+                    <input
+                      type="number"
+                      value={account.totalTopUps}
+                      onChange={(e) => handleAccountChange(idx, 'totalTopUps', parseFloat(e.target.value) || '')}
+                      placeholder="e.g., 50000"
+                      style={{
+                        padding: '12px 16px',
+                        fontSize: '15px',
+                        border: '1px solid #ddd',
+                        borderRadius: '8px',
+                        outline: 'none',
+                      }}
+                    />
+                    <p style={{ fontSize: '11px', color: '#666', margin: '4px 0 0 0' }}>
+                      Total of all additional contributions
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* REGULAR SUBSCRIPTION Fields */}
+              {account.investmentType === 'regular' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '16px', padding: '16px', backgroundColor: '#f0e8f4', borderRadius: '8px', borderLeft: '4px solid #9b59b6' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>
+                        Premium Frequency
+                      </label>
+                      <select
+                        value={account.premiumFrequency}
+                        onChange={(e) => handleAccountChange(idx, 'premiumFrequency', e.target.value)}
+                        style={{
+                          padding: '12px 16px',
+                          fontSize: '15px',
+                          border: '1px solid #ddd',
+                          borderRadius: '8px',
+                          outline: 'none',
+                          backgroundColor: 'white',
+                        }}
+                      >
+                        <option value="annual">Annual</option>
+                        <option value="monthly">Monthly</option>
+                      </select>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>
+                        Premium Amount (SGD) *
+                      </label>
+                      <input
+                        type="number"
+                        value={account.premiumAmount}
+                        onChange={(e) => handleAccountChange(idx, 'premiumAmount', parseFloat(e.target.value) || '')}
+                        placeholder={account.premiumFrequency === 'annual' ? 'e.g., 12000' : 'e.g., 1000'}
+                        style={{
+                          padding: '12px 16px',
+                          fontSize: '15px',
+                          border: `1px solid ${errors[`account_${idx}_premiumAmount`] ? '#dc3545' : '#ddd'}`,
+                          borderRadius: '8px',
+                          outline: 'none',
+                        }}
+                      />
+                      {errors[`account_${idx}_premiumAmount`] && (
+                        <p style={{ color: '#dc3545', fontSize: '12px', margin: '4px 0 0 0' }}>
+                          {errors[`account_${idx}_premiumAmount`]}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>
+                        Any Top Ups (SGD)
+                      </label>
+                      <input
+                        type="number"
+                        value={account.regularTopUps}
+                        onChange={(e) => handleAccountChange(idx, 'regularTopUps', parseFloat(e.target.value) || '')}
+                        placeholder="e.g., 10000"
+                        style={{
+                          padding: '12px 16px',
+                          fontSize: '15px',
+                          border: '1px solid #ddd',
+                          borderRadius: '8px',
+                          outline: 'none',
+                        }}
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>
+                        Any Withdrawals (SGD)
+                      </label>
+                      <input
+                        type="number"
+                        value={account.regularWithdrawals}
+                        onChange={(e) => handleAccountChange(idx, 'regularWithdrawals', parseFloat(e.target.value) || '')}
+                        placeholder="e.g., 5000"
+                        style={{
+                          padding: '12px 16px',
+                          fontSize: '15px',
+                          border: '1px solid #ddd',
+                          borderRadius: '8px',
+                          outline: 'none',
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
