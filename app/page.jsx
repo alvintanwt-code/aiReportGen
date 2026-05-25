@@ -699,7 +699,7 @@ export default function Home() {
                   type="text"
                   placeholder="Search clients..."
                   value={searchQuery}
-                  onChange={(e) => onSearchChange(e.target.value)}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   style={{
                     padding: '0 8px',
                     fontSize: '14px',
