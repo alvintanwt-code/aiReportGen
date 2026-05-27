@@ -1,6 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+
+const STORAGE_KEY = 'reportFormDraft';
 
 export default function ReportDetailsForm({
   clientName,
@@ -10,6 +12,8 @@ export default function ReportDetailsForm({
 }) {
   const [step, setStep] = useState(1);
   const [errors, setErrors] = useState({});
+  const [lastSaved, setLastSaved] = useState(null);
+  const [hasSavedDraft, setHasSavedDraft] = useState(false);
 
   // Step 1: Client & Report Details
   const [clientFullName, setClientFullName] = useState(clientName || '');
@@ -25,6 +29,7 @@ export default function ReportDetailsForm({
       name: set.name || `Portfolio ${idx + 1}`,
       policyNumber: '',
       startDate: new Date().toISOString().split('T')[0],
+      inceptionDate: new Date().toISOString().split('T')[0],
       policyholderName: clientName || '',
       accountProvider: '',
       // Investment Type
@@ -37,26 +42,75 @@ export default function ReportDetailsForm({
       premiumAmount: '',
       regularTopUps: '',
       regularWithdrawals: '',
-    }))
-  );
-
-  // Step 3: Performance Data
-  const [performanceData, setPerformanceData] = useState(
-    holdingsSets.map((set) => ({
-      setId: set.id,
-      inceptionDate: new Date().toISOString().split('T')[0],
+      // Current valuation for return calculation
       currentValuation: set.totalPortfolioValueSgd || 0,
-      cagr: '',
-      pAndL: '',
     }))
   );
 
-  // Step 4: Branding/Customization
+  // Step 3: Branding/Customization (formerly Step 4)
   const [companyName, setCompanyName] = useState('Leet Advisor');
   const [confidentialityNotice, setConfidentialityNotice] = useState(
     'This document contains confidential information. Unauthorized use or distribution is prohibited.'
   );
   const [colorScheme, setColorScheme] = useState('dark-navy');
+
+  // Load saved draft on mount
+  useEffect(() => {
+    const savedDraft = localStorage.getItem(STORAGE_KEY);
+    if (savedDraft) {
+      try {
+        const draft = JSON.parse(savedDraft);
+        setHasSavedDraft(true);
+      } catch (err) {
+        console.error('Error loading draft:', err);
+      }
+    }
+  }, []);
+
+  // Auto-save form state to localStorage whenever it changes
+  useEffect(() => {
+    const formState = {
+      step,
+      clientFullName,
+      reportDate,
+      primaryAdvisor,
+      secondaryAdvisor,
+      reportPeriod,
+      accountsData,
+      companyName,
+      confidentialityNotice,
+      colorScheme,
+      savedAt: new Date().toISOString(),
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(formState));
+    setLastSaved(new Date());
+  }, [step, clientFullName, reportDate, primaryAdvisor, secondaryAdvisor, reportPeriod, accountsData, companyName, confidentialityNotice, colorScheme]);
+
+  const loadDraft = () => {
+    const savedDraft = localStorage.getItem(STORAGE_KEY);
+    if (savedDraft) {
+      try {
+        const draft = JSON.parse(savedDraft);
+        setStep(draft.step || 1);
+        setClientFullName(draft.clientFullName || '');
+        setReportDate(draft.reportDate || new Date().toISOString().split('T')[0]);
+        setPrimaryAdvisor(draft.primaryAdvisor || '');
+        setSecondaryAdvisor(draft.secondaryAdvisor || '');
+        setReportPeriod(draft.reportPeriod || new Date().toISOString().split('T')[0]);
+        setAccountsData(draft.accountsData || accountsData);
+        setCompanyName(draft.companyName || 'Leet Advisor');
+        setConfidentialityNotice(draft.confidentialityNotice || 'This document contains confidential information. Unauthorized use or distribution is prohibited.');
+        setColorScheme(draft.colorScheme || 'dark-navy');
+      } catch (err) {
+        console.error('Error loading draft:', err);
+      }
+    }
+  };
+
+  const clearDraft = () => {
+    localStorage.removeItem(STORAGE_KEY);
+    setHasSavedDraft(false);
+  };
 
   const validateStep = (stepNum) => {
     const newErrors = {};
@@ -70,6 +124,10 @@ export default function ReportDetailsForm({
       accountsData.forEach((account, idx) => {
         if (!account.name.trim()) newErrors[`account_${idx}_name`] = 'Account name is required';
         if (!account.policyholderName.trim()) newErrors[`account_${idx}_policyholder`] = 'Policyholder name is required';
+        if (!account.inceptionDate) newErrors[`account_${idx}_inception`] = 'Inception date is required';
+        if (!account.currentValuation || account.currentValuation === 0) {
+          newErrors[`account_${idx}_valuation`] = 'Current valuation is required';
+        }
 
         // Validate investment-type-specific fields
         if (account.investmentType === 'lumpsum') {
@@ -80,14 +138,6 @@ export default function ReportDetailsForm({
           if (!account.premiumAmount && account.premiumAmount !== 0) {
             newErrors[`account_${idx}_premiumAmount`] = 'Premium amount is required';
           }
-        }
-      });
-    }
-
-    if (stepNum === 3) {
-      performanceData.forEach((perf, idx) => {
-        if (!perf.currentValuation || perf.currentValuation === 0) {
-          newErrors[`perf_${idx}_valuation`] = 'Current valuation is required';
         }
       });
     }
@@ -112,22 +162,58 @@ export default function ReportDetailsForm({
     setAccountsData(updated);
   };
 
-  const handlePerformanceChange = (idx, field, value) => {
-    const updated = [...performanceData];
-    updated[idx] = { ...updated[idx], [field]: value };
-    setPerformanceData(updated);
+  const calculateReturn = (account) => {
+    if (!account.inceptionDate || !account.currentValuation) return null;
+
+    const inceptionDate = new Date(account.inceptionDate);
+    const reportDate = new Date(reportPeriod);
+    const daysDiff = Math.floor((reportDate - inceptionDate) / (1000 * 60 * 60 * 24));
+    const yearsDiff = daysDiff / 365.25;
+
+    if (yearsDiff <= 0) return null;
+
+    // Calculate total invested
+    let totalInvested = 0;
+    if (account.investmentType === 'lumpsum') {
+      totalInvested = (parseFloat(account.initialCapital) || 0) + (parseFloat(account.totalTopUps) || 0);
+    } else {
+      const monthlyAmount = account.premiumFrequency === 'monthly'
+        ? (parseFloat(account.premiumAmount) || 0)
+        : (parseFloat(account.premiumAmount) || 0) / 12;
+      totalInvested = monthlyAmount * (daysDiff / 30.44) + (parseFloat(account.regularTopUps) || 0) - (parseFloat(account.regularWithdrawals) || 0);
+    }
+
+    const currentValue = parseFloat(account.currentValuation) || 0;
+    const gain = currentValue - totalInvested;
+    const totalReturn = (gain / totalInvested) * 100;
+
+    // Simple CAGR calculation
+    const cagr = (Math.pow(currentValue / totalInvested, 1 / yearsDiff) - 1) * 100;
+
+    return {
+      totalInvested: Math.round(totalInvested),
+      currentValue: Math.round(currentValue),
+      gain: Math.round(gain),
+      totalReturn: totalReturn.toFixed(2),
+      cagr: cagr.toFixed(2),
+      years: yearsDiff.toFixed(1),
+    };
   };
 
   const handleGenerateReport = () => {
     if (validateStep(step)) {
-      // Prepare comprehensive account data with investment details
-      const enrichedAccounts = accountsData.map((account) => ({
-        ...account,
-        investmentSummary:
-          account.investmentType === 'lumpsum'
-            ? `Lump Sum: Initial Capital SGD ${parseFloat(account.initialCapital || 0).toLocaleString()} + Top Ups SGD ${parseFloat(account.totalTopUps || 0).toLocaleString()}`
-            : `Regular ${account.premiumFrequency === 'annual' ? 'Annual' : 'Monthly'} Premium: SGD ${parseFloat(account.premiumAmount || 0).toLocaleString()}${account.regularTopUps ? ` + Top Ups SGD ${parseFloat(account.regularTopUps).toLocaleString()}` : ''}${account.regularWithdrawals ? ` - Withdrawals SGD ${parseFloat(account.regularWithdrawals).toLocaleString()}` : ''}`,
-      }));
+      // Prepare comprehensive account data with investment details and auto-calculated returns
+      const enrichedAccounts = accountsData.map((account) => {
+        const returns = calculateReturn(account);
+        return {
+          ...account,
+          investmentSummary:
+            account.investmentType === 'lumpsum'
+              ? `Lump Sum: Initial Capital SGD ${parseFloat(account.initialCapital || 0).toLocaleString()} + Top Ups SGD ${parseFloat(account.totalTopUps || 0).toLocaleString()}`
+              : `Regular ${account.premiumFrequency === 'annual' ? 'Annual' : 'Monthly'} Premium: SGD ${parseFloat(account.premiumAmount || 0).toLocaleString()}${account.regularTopUps ? ` + Top Ups SGD ${parseFloat(account.regularTopUps).toLocaleString()}` : ''}${account.regularWithdrawals ? ` - Withdrawals SGD ${parseFloat(account.regularWithdrawals).toLocaleString()}` : ''}`,
+          calculatedReturns: returns,
+        };
+      });
 
       const reportData = {
         clientDetails: {
@@ -138,7 +224,6 @@ export default function ReportDetailsForm({
           secondaryAdvisor: secondaryAdvisor || null,
         },
         accounts: enrichedAccounts,
-        performance: performanceData,
         branding: {
           companyName,
           confidentialityNotice,
@@ -146,6 +231,8 @@ export default function ReportDetailsForm({
         },
       };
       onGenerateReport(reportData);
+      // Clear the saved draft after successful generation
+      clearDraft();
     }
   };
 
@@ -155,13 +242,94 @@ export default function ReportDetailsForm({
       maxWidth: '800px',
       margin: '0 auto',
     }}>
+      {/* Resume Draft Banner */}
+      {hasSavedDraft && (
+        <div style={{
+          padding: '16px',
+          backgroundColor: '#fff3cd',
+          borderRadius: '8px',
+          border: '1px solid #ffc107',
+          marginBottom: '24px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}>
+          <div>
+            <p style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600', color: '#856404' }}>
+              📝 Draft Saved
+            </p>
+            <p style={{ margin: '0', fontSize: '12px', color: '#856404' }}>
+              You have an unsaved form. Would you like to resume from where you left off?
+              {lastSaved && ` (Last saved: ${lastSaved.toLocaleTimeString()})`}
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={loadDraft}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: '#ffc107',
+                color: '#333',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                fontWeight: '600',
+                transition: 'background-color 0.2s ease',
+              }}
+              onMouseEnter={(e) => (e.target.style.backgroundColor = '#ffb300')}
+              onMouseLeave={(e) => (e.target.style.backgroundColor = '#ffc107')}
+            >
+              Resume
+            </button>
+            <button
+              onClick={clearDraft}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: 'transparent',
+                color: '#856404',
+                border: '1px solid #ffc107',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                fontWeight: '600',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.backgroundColor = '#f8f9fa';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.backgroundColor = 'transparent';
+              }}
+            >
+              Start Fresh
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Last Saved Indicator */}
+      {lastSaved && !hasSavedDraft && (
+        <div style={{
+          padding: '8px 12px',
+          backgroundColor: '#e8f5e9',
+          borderRadius: '6px',
+          marginBottom: '24px',
+          fontSize: '12px',
+          color: '#2e7d32',
+          textAlign: 'right',
+        }}>
+          ✓ Auto-saved at {lastSaved.toLocaleTimeString()}
+        </div>
+      )}
+
       {/* Step 1: Client & Report Details */}
       {step === 1 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           <h2 style={{ fontSize: '28px', fontWeight: '600', margin: '0 0 16px 0', color: '#1a1a1a' }}>
             Client & Report Details
           </h2>
-          <p style={{ color: '#666', margin: '0 0 20px 0' }}>Step 1 of 4</p>
+          <p style={{ color: '#666', margin: '0 0 20px 0' }}>Step 1 of 3</p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>
@@ -274,9 +442,9 @@ export default function ReportDetailsForm({
       {step === 2 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           <h2 style={{ fontSize: '28px', fontWeight: '600', margin: '0 0 16px 0', color: '#1a1a1a' }}>
-            Portfolio Accounts
+            Portfolio Accounts & Performance
           </h2>
-          <p style={{ color: '#666', margin: '0 0 20px 0' }}>Step 2 of 4</p>
+          <p style={{ color: '#666', margin: '0 0 20px 0' }}>Step 2 of 3</p>
 
           {accountsData.map((account, idx) => (
             <div
@@ -584,144 +752,122 @@ export default function ReportDetailsForm({
                   </div>
                 </div>
               )}
-            </div>
-          ))}
-        </div>
-      )}
 
-      {/* Step 3: Performance Data */}
-      {step === 3 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          <h2 style={{ fontSize: '28px', fontWeight: '600', margin: '0 0 16px 0', color: '#1a1a1a' }}>
-            Performance Data
-          </h2>
-          <p style={{ color: '#666', margin: '0 0 20px 0' }}>Step 3 of 4</p>
-
-          {performanceData.map((perf, idx) => (
-            <div
-              key={perf.setId}
-              style={{
-                padding: '20px',
-                backgroundColor: '#f9f9f9',
+              {/* Inception Date & Current Valuation */}
+              <div style={{
+                padding: '16px',
+                backgroundColor: '#e8f4f8',
                 borderRadius: '8px',
-                border: '1px solid #eee',
+                borderLeft: '4px solid #0288d1',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '16px',
-              }}
-            >
-              <h3 style={{ margin: '0', fontSize: '16px', fontWeight: '600', color: '#333' }}>
-                {accountsData[idx]?.name || `Portfolio ${idx + 1}`}
-              </h3>
+                gap: '16px'
+              }}>
+                <h4 style={{ margin: '0', fontSize: '14px', fontWeight: '600', color: '#01579b' }}>
+                  Performance Period & Valuation
+                </h4>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>
-                    Inception Date
-                  </label>
-                  <input
-                    type="date"
-                    value={perf.inceptionDate}
-                    onChange={(e) => handlePerformanceChange(idx, 'inceptionDate', e.target.value)}
-                    style={{
-                      padding: '12px 16px',
-                      fontSize: '15px',
-                      border: '1px solid #ddd',
-                      borderRadius: '8px',
-                      outline: 'none',
-                    }}
-                  />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>
+                      Inception Date *
+                    </label>
+                    <input
+                      type="date"
+                      value={account.inceptionDate}
+                      onChange={(e) => handleAccountChange(idx, 'inceptionDate', e.target.value)}
+                      style={{
+                        padding: '12px 16px',
+                        fontSize: '15px',
+                        border: `1px solid ${errors[`account_${idx}_inception`] ? '#dc3545' : '#ddd'}`,
+                        borderRadius: '8px',
+                        outline: 'none',
+                      }}
+                    />
+                    {errors[`account_${idx}_inception`] && (
+                      <p style={{ color: '#dc3545', fontSize: '12px', margin: '4px 0 0 0' }}>
+                        {errors[`account_${idx}_inception`]}
+                      </p>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>
+                      Current Valuation (SGD) *
+                    </label>
+                    <input
+                      type="number"
+                      value={account.currentValuation}
+                      onChange={(e) => handleAccountChange(idx, 'currentValuation', parseFloat(e.target.value) || 0)}
+                      placeholder="e.g., 125000"
+                      style={{
+                        padding: '12px 16px',
+                        fontSize: '15px',
+                        border: `1px solid ${errors[`account_${idx}_valuation`] ? '#dc3545' : '#ddd'}`,
+                        borderRadius: '8px',
+                        outline: 'none',
+                      }}
+                    />
+                    {errors[`account_${idx}_valuation`] && (
+                      <p style={{ color: '#dc3545', fontSize: '12px', margin: '4px 0 0 0' }}>
+                        {errors[`account_${idx}_valuation`]}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>
-                    Current Valuation (SGD) *
-                  </label>
-                  <input
-                    type="number"
-                    value={perf.currentValuation}
-                    onChange={(e) => handlePerformanceChange(idx, 'currentValuation', parseFloat(e.target.value) || 0)}
-                    placeholder="e.g., 125000"
-                    style={{
-                      padding: '12px 16px',
-                      fontSize: '15px',
-                      border: `1px solid ${errors[`perf_${idx}_valuation`] ? '#dc3545' : '#ddd'}`,
-                      borderRadius: '8px',
-                      outline: 'none',
-                    }}
-                  />
-                  {errors[`perf_${idx}_valuation`] && (
-                    <p style={{ color: '#dc3545', fontSize: '12px', margin: '4px 0 0 0' }}>
-                      {errors[`perf_${idx}_valuation`]}
+                {/* Auto-calculated returns preview */}
+                {calculateReturn(account) && (
+                  <div style={{
+                    padding: '12px',
+                    backgroundColor: '#ffffff',
+                    borderRadius: '6px',
+                    border: '1px solid #b3e5fc',
+                  }}>
+                    <p style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: '600', color: '#01579b' }}>
+                      📊 Auto-calculated Returns (from {account.inceptionDate})
                     </p>
-                  )}
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>
-                    CAGR (%) (Optional)
-                  </label>
-                  <input
-                    type="number"
-                    value={perf.cagr}
-                    onChange={(e) => handlePerformanceChange(idx, 'cagr', parseFloat(e.target.value) || '')}
-                    placeholder="e.g., 8.5"
-                    step="0.01"
-                    style={{
-                      padding: '12px 16px',
-                      fontSize: '15px',
-                      border: '1px solid #ddd',
-                      borderRadius: '8px',
-                      outline: 'none',
-                    }}
-                  />
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>
-                    P&L % (Optional)
-                  </label>
-                  <input
-                    type="number"
-                    value={perf.pAndL}
-                    onChange={(e) => handlePerformanceChange(idx, 'pAndL', parseFloat(e.target.value) || '')}
-                    placeholder="e.g., 25"
-                    step="0.01"
-                    style={{
-                      padding: '12px 16px',
-                      fontSize: '15px',
-                      border: '1px solid #ddd',
-                      borderRadius: '8px',
-                      outline: 'none',
-                    }}
-                  />
-                </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '13px' }}>
+                      <div>
+                        <p style={{ margin: '0', color: '#666' }}>Total Invested</p>
+                        <p style={{ margin: '0', fontWeight: '600', color: '#1a1a1a' }}>
+                          SGD {calculateReturn(account).totalInvested.toLocaleString()}
+                        </p>
+                      </div>
+                      <div>
+                        <p style={{ margin: '0', color: '#666' }}>Current Value</p>
+                        <p style={{ margin: '0', fontWeight: '600', color: '#1a1a1a' }}>
+                          SGD {calculateReturn(account).currentValue.toLocaleString()}
+                        </p>
+                      </div>
+                      <div>
+                        <p style={{ margin: '0', color: '#666' }}>Total Return</p>
+                        <p style={{ margin: '0', fontWeight: '600', color: '#2e7d32' }}>
+                          {calculateReturn(account).totalReturn}%
+                        </p>
+                      </div>
+                      <div>
+                        <p style={{ margin: '0', color: '#666' }}>CAGR</p>
+                        <p style={{ margin: '0', fontWeight: '600', color: '#2e7d32' }}>
+                          {calculateReturn(account).cagr}%
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           ))}
-
-          <div style={{
-            padding: '16px',
-            backgroundColor: '#e8f4f8',
-            borderRadius: '8px',
-            borderLeft: '4px solid #0288d1',
-          }}>
-            <p style={{ margin: '0', fontSize: '14px', color: '#01579b' }}>
-              💡 Tip: If you don't have CAGR or P&L calculated, leave blank. We can calculate these from your inception date and valuations.
-            </p>
-          </div>
         </div>
       )}
 
-      {/* Step 4: Branding & Customization */}
-      {step === 4 && (
+      {/* Step 3: Branding & Customization */}
+      {step === 3 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           <h2 style={{ fontSize: '28px', fontWeight: '600', margin: '0 0 16px 0', color: '#1a1a1a' }}>
             Report Branding
           </h2>
-          <p style={{ color: '#666', margin: '0 0 20px 0' }}>Step 4 of 4 (Optional)</p>
+          <p style={{ color: '#666', margin: '0 0 20px 0' }}>Step 3 of 3 (Optional)</p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>
@@ -826,7 +972,7 @@ export default function ReportDetailsForm({
           </button>
         )}
 
-        {step < 4 && (
+        {step < 3 && (
           <button
             onClick={handleNextStep}
             style={{
@@ -847,7 +993,7 @@ export default function ReportDetailsForm({
           </button>
         )}
 
-        {step === 4 && (
+        {step === 3 && (
           <button
             onClick={handleGenerateReport}
             style={{
