@@ -168,33 +168,44 @@ export default function ReportDetailsForm({
     const inceptionDate = new Date(account.inceptionDate);
     const reportDate = new Date(reportPeriod);
     const daysDiff = Math.floor((reportDate - inceptionDate) / (1000 * 60 * 60 * 24));
+    const monthsDiff = daysDiff / 30.44;
     const yearsDiff = daysDiff / 365.25;
 
     if (yearsDiff <= 0) return null;
 
-    // Calculate total invested
-    let totalInvested = 0;
+    // Calculate capital invested (auto-calculated from contributions)
+    let capitalInvested = 0;
     if (account.investmentType === 'lumpsum') {
-      totalInvested = (parseFloat(account.initialCapital) || 0) + (parseFloat(account.totalTopUps) || 0);
+      // Lump sum: initial capital + top-ups - withdrawals
+      capitalInvested = (parseFloat(account.initialCapital) || 0) +
+                       (parseFloat(account.totalTopUps) || 0) -
+                       (parseFloat(account.regularWithdrawals) || 0);
     } else {
+      // Regular subscription: monthly/annual contribution × months + top-ups - withdrawals
       const monthlyAmount = account.premiumFrequency === 'monthly'
         ? (parseFloat(account.premiumAmount) || 0)
         : (parseFloat(account.premiumAmount) || 0) / 12;
-      totalInvested = monthlyAmount * (daysDiff / 30.44) + (parseFloat(account.regularTopUps) || 0) - (parseFloat(account.regularWithdrawals) || 0);
+      capitalInvested = (monthlyAmount * monthsDiff) +
+                       (parseFloat(account.regularTopUps) || 0) -
+                       (parseFloat(account.regularWithdrawals) || 0);
     }
 
     const currentValue = parseFloat(account.currentValuation) || 0;
-    const gain = currentValue - totalInvested;
-    const totalReturn = (gain / totalInvested) * 100;
+    const gain = currentValue - capitalInvested;
+
+    // P&L % = (Profit & Loss / Capital Invested) × 100
+    const pAndLPercent = capitalInvested > 0 ? (gain / capitalInvested) * 100 : 0;
 
     // Simple CAGR calculation
-    const cagr = (Math.pow(currentValue / totalInvested, 1 / yearsDiff) - 1) * 100;
+    const cagr = capitalInvested > 0 && yearsDiff > 0
+      ? (Math.pow(currentValue / capitalInvested, 1 / yearsDiff) - 1) * 100
+      : 0;
 
     return {
-      totalInvested: Math.round(totalInvested),
+      capitalInvested: Math.round(capitalInvested),
       currentValue: Math.round(currentValue),
       gain: Math.round(gain),
-      totalReturn: totalReturn.toFixed(2),
+      pAndL: pAndLPercent.toFixed(2),
       cagr: cagr.toFixed(2),
       years: yearsDiff.toFixed(1),
     };
@@ -829,9 +840,9 @@ export default function ReportDetailsForm({
                     </p>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '13px' }}>
                       <div>
-                        <p style={{ margin: '0', color: '#666' }}>Total Invested</p>
+                        <p style={{ margin: '0', color: '#666' }}>Capital Invested</p>
                         <p style={{ margin: '0', fontWeight: '600', color: '#1a1a1a' }}>
-                          SGD {calculateReturn(account).totalInvested.toLocaleString()}
+                          SGD {calculateReturn(account).capitalInvested.toLocaleString()}
                         </p>
                       </div>
                       <div>
@@ -841,14 +852,14 @@ export default function ReportDetailsForm({
                         </p>
                       </div>
                       <div>
-                        <p style={{ margin: '0', color: '#666' }}>Total Return</p>
-                        <p style={{ margin: '0', fontWeight: '600', color: '#2e7d32' }}>
-                          {calculateReturn(account).totalReturn}%
+                        <p style={{ margin: '0', color: '#666' }}>Profit & Loss %</p>
+                        <p style={{ margin: '0', fontWeight: '600', color: parseFloat(calculateReturn(account).pAndL) >= 0 ? '#2e7d32' : '#dc3545' }}>
+                          {calculateReturn(account).pAndL}%
                         </p>
                       </div>
                       <div>
                         <p style={{ margin: '0', color: '#666' }}>CAGR</p>
-                        <p style={{ margin: '0', fontWeight: '600', color: '#2e7d32' }}>
+                        <p style={{ margin: '0', fontWeight: '600', color: parseFloat(calculateReturn(account).cagr) >= 0 ? '#2e7d32' : '#dc3545' }}>
                           {calculateReturn(account).cagr}%
                         </p>
                       </div>

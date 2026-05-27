@@ -91,9 +91,15 @@ export default function ReviewUploadView({
 
       console.log('[ReviewUploadView] Got extracted holdings:', extractedHoldings);
 
+      // Add originalAllocationPercent field to each holding (for tracking rebalancing)
+      const holdingsWithAllocation = extractedHoldings.map(holding => ({
+        ...holding,
+        originalAllocationPercent: holding.originalAllocationPercent || null,
+      }));
+
       // Recalculate with initial values
       const { holdings: recalculatedHoldings, totalPortfolioValueSgd: total } =
-        recalculatePortfolio(extractedHoldings);
+        recalculatePortfolio(holdingsWithAllocation);
 
       console.log('[ReviewUploadView] Recalculated portfolio, total:', total);
 

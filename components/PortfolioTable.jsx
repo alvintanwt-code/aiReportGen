@@ -14,6 +14,7 @@ export default function PortfolioTable({
 
   const columns = [
     { key: 'fundName', label: 'Fund Name', width: '200px' },
+    { key: 'originalAllocationPercent', label: 'Original Allocation %', width: '130px', type: 'number' },
     { key: 'units', label: 'Units', width: '80px', type: 'number' },
     { key: 'unitPrice', label: 'Unit Price', width: '100px', type: 'number' },
     { key: 'currency', label: 'Currency', width: '80px' },
@@ -27,13 +28,44 @@ export default function PortfolioTable({
   const handleCellChange = (holdingId, field, newValue) => {
     console.log('[PortfolioTable] Cell changed:', { holdingId, field, newValue });
 
-    const parsedValue =
-      field === 'fundName' || field === 'currency'
-        ? newValue
-        : parseFloat(newValue) || 0;
+    let parsedValue;
+
+    // Handle originalAllocationPercent - must be 0-100
+    if (field === 'originalAllocationPercent') {
+      parsedValue = parseFloat(newValue) || 0;
+      if (parsedValue < 0) parsedValue = 0;
+      if (parsedValue > 100) parsedValue = 100;
+    } else {
+      parsedValue =
+        field === 'fundName' || field === 'currency'
+          ? newValue
+          : parseFloat(newValue) || 0;
+    }
 
     onHoldingChange(holdingId, field, parsedValue);
-    // Don't close the input here - onBlur and onKeyDown handle closing
+
+    // Validate allocation sum if original allocation field was changed
+    if (field === 'originalAllocationPercent') {
+      validateAllocationSum();
+    }
+  };
+
+  const validateAllocationSum = () => {
+    // Check if all holdings have original allocation filled
+    const allFilled = holdings.every(h => h.originalAllocationPercent !== null && h.originalAllocationPercent !== undefined && h.originalAllocationPercent !== '');
+
+    if (allFilled) {
+      const total = holdings.reduce((sum, h) => sum + (parseFloat(h.originalAllocationPercent) || 0), 0);
+
+      if (total !== 100) {
+        const message = `⚠️ Original Allocation total is ${total.toFixed(2)}%. It should be 100%.`;
+        console.warn('[PortfolioTable]', message);
+        // Return the total so parent can display warning
+        return { isValid: false, total, message };
+      }
+      return { isValid: true, total };
+    }
+    return { isValid: null, message: 'Fill in all Original Allocation values' };
   };
 
   const handleDeleteHolding = (holding) => {
@@ -262,8 +294,45 @@ export default function PortfolioTable({
         </div>
       )}
 
+      {/* Original Allocation Validation */}
+      {holdings.length > 0 && (() => {
+        const allocationValidation = validateAllocationSum();
+        const allFilled = holdings.every(h => h.originalAllocationPercent !== null && h.originalAllocationPercent !== undefined && h.originalAllocationPercent !== '');
+
+        if (allFilled && allocationValidation.total !== 100) {
+          return (
+            <div style={{
+              marginTop: '15px',
+              padding: '12px',
+              backgroundColor: '#fff3cd',
+              border: '1px solid #ffc107',
+              borderRadius: '6px',
+              color: '#856404',
+              fontSize: '13px',
+            }}>
+              ⚠️ <strong>Original Allocation Total: {allocationValidation.total.toFixed(2)}%</strong> (Should be 100%)
+            </div>
+          );
+        } else if (allFilled && allocationValidation.total === 100) {
+          return (
+            <div style={{
+              marginTop: '15px',
+              padding: '12px',
+              backgroundColor: '#d4edda',
+              border: '1px solid #28a745',
+              borderRadius: '6px',
+              color: '#155724',
+              fontSize: '13px',
+            }}>
+              ✅ <strong>Original Allocation: {allocationValidation.total.toFixed(2)}%</strong> (Correct!)
+            </div>
+          );
+        }
+        return null;
+      })()}
+
       <p style={{ marginTop: '10px', color: '#999', fontSize: '12px' }}>
-        💡 Click any cell to edit. Use the Delete button to remove funds (especially those with 0 Units). Calculations update automatically.
+        💡 Click any cell to edit. Fill in "Original Allocation %" to track growth since rebalancing. Use the Delete button to remove funds (especially those with 0 Units). Calculations update automatically.
       </p>
     </div>
   );
