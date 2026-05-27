@@ -95,17 +95,17 @@ export default function ReportDetailsForm({
         const draft = JSON.parse(savedDraft);
         console.log('[ReportDetailsForm] Loaded draft from localStorage:', draft);
 
-        // Restore all form state from draft
-        if (draft.step) setStep(draft.step);
-        if (draft.clientFullName) setClientFullName(draft.clientFullName);
-        if (draft.reportDate) setReportDate(draft.reportDate);
-        if (draft.primaryAdvisor) setPrimaryAdvisor(draft.primaryAdvisor);
-        if (draft.secondaryAdvisor) setSecondaryAdvisor(draft.secondaryAdvisor);
-        if (draft.reportPeriod) setReportPeriod(draft.reportPeriod);
-        if (draft.accountsData) setAccountsData(draft.accountsData);
-        if (draft.companyName) setCompanyName(draft.companyName);
-        if (draft.confidentialityNotice) setConfidentialityNotice(draft.confidentialityNotice);
-        if (draft.colorScheme) setColorScheme(draft.colorScheme);
+        // Restore all form state from draft (check for existence, not truthiness)
+        if ('step' in draft) setStep(draft.step);
+        if ('clientFullName' in draft) setClientFullName(draft.clientFullName);
+        if ('reportDate' in draft) setReportDate(draft.reportDate);
+        if ('primaryAdvisor' in draft) setPrimaryAdvisor(draft.primaryAdvisor);
+        if ('secondaryAdvisor' in draft) setSecondaryAdvisor(draft.secondaryAdvisor);
+        if ('reportPeriod' in draft) setReportPeriod(draft.reportPeriod);
+        if ('accountsData' in draft) setAccountsData(draft.accountsData);
+        if ('companyName' in draft) setCompanyName(draft.companyName);
+        if ('confidentialityNotice' in draft) setConfidentialityNotice(draft.confidentialityNotice);
+        if ('colorScheme' in draft) setColorScheme(draft.colorScheme);
 
         console.log('[ReportDetailsForm] Draft state restored, setting hasSavedDraft to false');
         // Hide the draft banner after successfully loading
