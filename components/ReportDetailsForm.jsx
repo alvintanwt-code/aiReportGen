@@ -226,6 +226,13 @@ export default function ReportDetailsForm({
         };
       });
 
+      // Create performance array from account data
+      const performance = accountsData.map((account) => ({
+        inceptionDate: account.inceptionDate,
+        currentValuation: parseFloat(account.currentValuation) || 0,
+        cagr: calculateReturn(account)?.cagr || null,
+      }));
+
       const reportData = {
         clientDetails: {
           fullName: clientFullName,
@@ -235,6 +242,7 @@ export default function ReportDetailsForm({
           secondaryAdvisor: secondaryAdvisor || null,
         },
         accounts: enrichedAccounts,
+        performance,
         branding: {
           companyName,
           confidentialityNotice,
