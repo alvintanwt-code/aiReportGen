@@ -21,20 +21,31 @@ function cleanFundName(fundName) {
 }
 
 /**
+ * Normalize fund name for comparison (lowercase, trim whitespace)
+ */
+function normalizeFundName(name) {
+  return String(name).toLowerCase().trim();
+}
+
+/**
  * Consolidate duplicate fund names by summing their units
  */
 function consolidateHoldings(holdings) {
   const consolidated = {};
+  const nameMap = {}; // Map normalized names to original first occurrence
 
   holdings.forEach(holding => {
-    const key = holding.fundName.toLowerCase();
+    const normalizedKey = normalizeFundName(holding.fundName);
 
-    if (consolidated[key]) {
+    if (consolidated[normalizedKey]) {
       // Add units to existing holding
-      consolidated[key].units += holding.units;
+      consolidated[normalizedKey].units += holding.units;
+      console.log(`[CSV_CONSOLIDATION] Merged "${holding.fundName}" with "${nameMap[normalizedKey]}" - new units: ${consolidated[normalizedKey].units}`);
     } else {
       // First occurrence of this fund
-      consolidated[key] = { ...holding };
+      consolidated[normalizedKey] = { ...holding };
+      nameMap[normalizedKey] = holding.fundName;
+      console.log(`[CSV_CONSOLIDATION] First occurrence of "${holding.fundName}" with ${holding.units} units`);
     }
   });
 
