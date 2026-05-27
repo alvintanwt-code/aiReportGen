@@ -251,13 +251,6 @@ export default function ReportDetailsForm({
 
   const handleGenerateReport = () => {
     if (validateStep(step)) {
-      // Validate original allocation only before generating report
-      const allocValidation = validateOriginalAllocation();
-      if (!allocValidation.valid) {
-        setErrors({ allocation: allocValidation.error });
-        return;
-      }
-
       // Prepare comprehensive account data with investment details and auto-calculated returns
       const enrichedAccounts = accountsData.map((account) => {
         const returns = calculateReturn(account);

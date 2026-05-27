@@ -224,8 +224,40 @@ export default function ReviewUploadView({
     onSaveHoldings(holdingsSets, reviewName);
   };
 
+  const validateAllocationBeforeReport = () => {
+    // Check allocation status across all holdings sets
+    for (const set of holdingsSets) {
+      if (!set.holdings || set.holdings.length === 0) continue;
+
+      const allocations = set.holdings.map(h => h.originalAllocationPercent).filter(a => a !== null && a !== undefined && a !== '');
+
+      // If some allocations are filled, check if all are filled and sum to 100%
+      if (allocations.length > 0 && allocations.length < set.holdings.length) {
+        // Partially filled - not allowed
+        setError(`${set.name}: Original Allocation is partially filled. Either fill all values to sum to 100%, or leave all blank.`);
+        return false;
+      }
+
+      if (allocations.length === set.holdings.length) {
+        // All filled, check if sums to 100%
+        const total = allocations.reduce((sum, a) => sum + (parseFloat(a) || 0), 0);
+        if (Math.abs(total - 100) > 0.01) {
+          setError(`${set.name}: Original Allocation must sum to 100% (currently ${total.toFixed(2)}%)`);
+          return false;
+        }
+      }
+    }
+    return true;
+  };
+
   const handleGenerateReportClick = () => {
-    console.log('[ReviewUploadView] Generate Report clicked, opening form');
+    console.log('[ReviewUploadView] Generate Report clicked, validating allocation');
+
+    if (!validateAllocationBeforeReport()) {
+      return;
+    }
+
+    console.log('[ReviewUploadView] Validation passed, opening form');
     setShowReportForm(true);
   };
 
