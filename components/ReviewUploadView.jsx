@@ -236,6 +236,9 @@ export default function ReviewUploadView({
 
   const handleReportGenerated = (reportData) => {
     console.log('[ReviewUploadView] Report generated with data:', reportData);
+    console.log('[ReviewUploadView] holdingsSets structure:', holdingsSets);
+    console.log('[ReviewUploadView] reportData.accounts:', reportData.accounts);
+    console.log('[ReviewUploadView] reportData.performance:', reportData.performance);
 
     try {
       // Open report in new window for preview/printing
@@ -250,6 +253,7 @@ export default function ReviewUploadView({
       setError(''); // Clear any previous errors
     } catch (err) {
       console.error('[ReviewUploadView] Error generating report:', err);
+      console.error('[ReviewUploadView] Error stack:', err.stack);
       setError(`Failed to generate report: ${err.message}`);
     }
   };
