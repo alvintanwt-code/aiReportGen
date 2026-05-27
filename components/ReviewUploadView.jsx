@@ -593,20 +593,6 @@ export default function ReviewUploadView({
               </div>
             )}
 
-            {error && (
-              <div
-                style={{
-                  padding: '15px',
-                  backgroundColor: '#f8d7da',
-                  color: '#721c24',
-                  borderRadius: '4px',
-                  marginBottom: '20px',
-                }}
-              >
-                {error}
-              </div>
-            )}
-
             {/* Upload Area - Show for all reviews */}
             <UploadArea onUpload={handleUpload} isLoading={isLoading} shouldFlash={shouldFlashUpload} />
 
@@ -850,6 +836,23 @@ export default function ReviewUploadView({
                   onDeleteSet={handleDeleteSet}
                   onHoldingDelete={handleDeleteHolding}
                 />
+
+                {/* Allocation Validation Error - Shown below holdings table */}
+                {error && (
+                  <div
+                    style={{
+                      marginTop: '20px',
+                      padding: '15px',
+                      backgroundColor: '#f8d7da',
+                      color: '#721c24',
+                      borderRadius: '4px',
+                      border: '1px solid #f5c6cb',
+                      fontSize: '14px',
+                    }}
+                  >
+                    ⚠️ {error}
+                  </div>
+                )}
               </div>
             )}
 
