@@ -88,24 +88,33 @@ export default function ReportDetailsForm({
 
   const loadDraft = () => {
     const savedDraft = localStorage.getItem(STORAGE_KEY);
+    console.log('[ReportDetailsForm] loadDraft called, savedDraft exists:', !!savedDraft);
+
     if (savedDraft) {
       try {
         const draft = JSON.parse(savedDraft);
-        setStep(draft.step || 1);
-        setClientFullName(draft.clientFullName || '');
-        setReportDate(draft.reportDate || new Date().toISOString().split('T')[0]);
-        setPrimaryAdvisor(draft.primaryAdvisor || '');
-        setSecondaryAdvisor(draft.secondaryAdvisor || '');
-        setReportPeriod(draft.reportPeriod || new Date().toISOString().split('T')[0]);
-        setAccountsData(draft.accountsData || accountsData);
-        setCompanyName(draft.companyName || 'Leet Advisor');
-        setConfidentialityNotice(draft.confidentialityNotice || 'This document contains confidential information. Unauthorized use or distribution is prohibited.');
-        setColorScheme(draft.colorScheme || 'dark-navy');
+        console.log('[ReportDetailsForm] Loaded draft from localStorage:', draft);
+
+        // Restore all form state from draft
+        if (draft.step) setStep(draft.step);
+        if (draft.clientFullName) setClientFullName(draft.clientFullName);
+        if (draft.reportDate) setReportDate(draft.reportDate);
+        if (draft.primaryAdvisor) setPrimaryAdvisor(draft.primaryAdvisor);
+        if (draft.secondaryAdvisor) setSecondaryAdvisor(draft.secondaryAdvisor);
+        if (draft.reportPeriod) setReportPeriod(draft.reportPeriod);
+        if (draft.accountsData) setAccountsData(draft.accountsData);
+        if (draft.companyName) setCompanyName(draft.companyName);
+        if (draft.confidentialityNotice) setConfidentialityNotice(draft.confidentialityNotice);
+        if (draft.colorScheme) setColorScheme(draft.colorScheme);
+
+        console.log('[ReportDetailsForm] Draft state restored, setting hasSavedDraft to false');
         // Hide the draft banner after successfully loading
         setHasSavedDraft(false);
       } catch (err) {
-        console.error('Error loading draft:', err);
+        console.error('[ReportDetailsForm] Error loading draft:', err);
       }
+    } else {
+      console.log('[ReportDetailsForm] No saved draft found in localStorage');
     }
   };
 
