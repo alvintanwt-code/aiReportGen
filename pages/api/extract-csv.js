@@ -8,6 +8,18 @@ export const config = {
   },
 };
 
+/**
+ * Remove currency indicators like (USD), (SGD), etc. from fund names
+ */
+function cleanFundName(fundName) {
+  if (!fundName) return fundName;
+  // Remove currency patterns like (USD), (SGD), (HKD), etc. and any trailing/leading spaces
+  return fundName
+    .replace(/\s*\([A-Z]{3}\)\s*$/i, '') // Match (XXX) at the end
+    .replace(/\s*\([A-Z]{3}\)\s*/gi, ' ') // Match (XXX) anywhere else
+    .trim();
+}
+
 // Fuzzy match column headers
 function normalizeColumnName(name) {
   return name.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
@@ -148,7 +160,7 @@ export default async function handler(req, res) {
 
         return {
           id: `h-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 9)}`,
-          fundName: String(row[fundNameCol]).trim(),
+          fundName: cleanFundName(String(row[fundNameCol])),
           units: parseNumber(row[unitsCol]),
           unitPrice: parseNumber(row[priceCol]),
           currency: currency,

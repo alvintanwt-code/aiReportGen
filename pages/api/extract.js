@@ -7,6 +7,18 @@ export const config = {
   },
 };
 
+/**
+ * Remove currency indicators like (USD), (SGD), etc. from fund names
+ */
+function cleanFundName(fundName) {
+  if (!fundName) return fundName;
+  // Remove currency patterns like (USD), (SGD), (HKD), etc. and any trailing/leading spaces
+  return fundName
+    .replace(/\s*\([A-Z]{3}\)\s*$/i, '') // Match (XXX) at the end
+    .replace(/\s*\([A-Z]{3}\)\s*/gi, ' ') // Match (XXX) anywhere else
+    .trim();
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -124,7 +136,7 @@ CRITICAL REMINDERS:
       success: true,
       holdings: holdings.map((h, idx) => ({
         id: `h-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 9)}`,
-        fundName: String(h.fundName || 'Unknown').trim(),
+        fundName: cleanFundName(String(h.fundName || 'Unknown')),
         units: parseFloat(h.units) || 0,
         unitPrice: parseFloat(h.unitPrice) || 0,
         currency: String(h.currency || 'SGD').toUpperCase(),
