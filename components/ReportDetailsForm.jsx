@@ -101,6 +101,8 @@ export default function ReportDetailsForm({
         setCompanyName(draft.companyName || 'Leet Advisor');
         setConfidentialityNotice(draft.confidentialityNotice || 'This document contains confidential information. Unauthorized use or distribution is prohibited.');
         setColorScheme(draft.colorScheme || 'dark-navy');
+        // Hide the draft banner after successfully loading
+        setHasSavedDraft(false);
       } catch (err) {
         console.error('Error loading draft:', err);
       }
