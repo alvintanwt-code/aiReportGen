@@ -20,6 +20,27 @@ function cleanFundName(fundName) {
     .trim();
 }
 
+/**
+ * Consolidate duplicate fund names by summing their units
+ */
+function consolidateHoldings(holdings) {
+  const consolidated = {};
+
+  holdings.forEach(holding => {
+    const key = holding.fundName.toLowerCase();
+
+    if (consolidated[key]) {
+      // Add units to existing holding
+      consolidated[key].units += holding.units;
+    } else {
+      // First occurrence of this fund
+      consolidated[key] = { ...holding };
+    }
+  });
+
+  return Object.values(consolidated);
+}
+
 // Fuzzy match column headers
 function normalizeColumnName(name) {
   return name.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
@@ -174,10 +195,14 @@ export default async function handler(req, res) {
       throw new Error('No valid holdings data found in CSV');
     }
 
+    // Consolidate duplicate fund names
+    const consolidatedHoldings = consolidateHoldings(holdings);
+    console.log('[CSV_EXTRACT] After consolidation:', consolidatedHoldings.length, 'holdings');
+
     return res.status(200).json({
       success: true,
-      holdings,
-      message: `Successfully extracted ${holdings.length} holdings from CSV`,
+      holdings: consolidatedHoldings,
+      message: `Successfully extracted ${consolidatedHoldings.length} holdings from CSV`,
     });
   } catch (error) {
     console.error('[CSV_EXTRACT] Error:', error.message);

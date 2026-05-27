@@ -19,6 +19,27 @@ function cleanFundName(fundName) {
     .trim();
 }
 
+/**
+ * Consolidate duplicate fund names by summing their units
+ */
+function consolidateHoldings(holdings) {
+  const consolidated = {};
+
+  holdings.forEach(holding => {
+    const key = holding.fundName.toLowerCase();
+
+    if (consolidated[key]) {
+      // Add units to existing holding
+      consolidated[key].units += holding.units;
+    } else {
+      // First occurrence of this fund
+      consolidated[key] = { ...holding };
+    }
+  });
+
+  return Object.values(consolidated);
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -130,18 +151,26 @@ CRITICAL REMINDERS:
     if (!Array.isArray(holdings)) holdings = [holdings];
 
     console.log('[EXTRACT] Extracted', holdings.length, 'holdings');
-    console.log('[EXTRACT] FX Rates:', holdings.map(h => `${h.fundName.substring(0, 20)}: ${h.fxRateToSgd}`));
+
+    // Clean and format holdings
+    const formattedHoldings = holdings.map((h, idx) => ({
+      id: `h-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 9)}`,
+      fundName: cleanFundName(String(h.fundName || 'Unknown')),
+      units: parseFloat(h.units) || 0,
+      unitPrice: parseFloat(h.unitPrice) || 0,
+      currency: String(h.currency || 'SGD').toUpperCase(),
+      fxRateToSgd: parseFloat(h.fxRateToSgd) || 0,
+    }));
+
+    // Consolidate duplicate fund names
+    const consolidatedHoldings = consolidateHoldings(formattedHoldings);
+
+    console.log('[EXTRACT] After consolidation:', consolidatedHoldings.length, 'holdings');
+    console.log('[EXTRACT] FX Rates:', consolidatedHoldings.map(h => `${h.fundName.substring(0, 20)}: ${h.fxRateToSgd}`));
 
     return res.status(200).json({
       success: true,
-      holdings: holdings.map((h, idx) => ({
-        id: `h-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 9)}`,
-        fundName: cleanFundName(String(h.fundName || 'Unknown')),
-        units: parseFloat(h.units) || 0,
-        unitPrice: parseFloat(h.unitPrice) || 0,
-        currency: String(h.currency || 'SGD').toUpperCase(),
-        fxRateToSgd: parseFloat(h.fxRateToSgd) || 0, // NO DEFAULT - use exactly what Claude extracted
-      })),
+      holdings: consolidatedHoldings,
     });
   } catch (error) {
     console.error('[EXTRACT] Error:', error.message);
