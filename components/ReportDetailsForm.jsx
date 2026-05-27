@@ -114,6 +114,42 @@ export default function ReportDetailsForm({
     setHasSavedDraft(false);
   };
 
+  const validateOriginalAllocation = () => {
+    // Check if any fund has originalAllocationPercent filled
+    const hasAnyAllocation = holdingsSets.some(set =>
+      set.holdings && set.holdings.some(h => h.originalAllocationPercent !== null && h.originalAllocationPercent !== undefined && h.originalAllocationPercent !== '')
+    );
+
+    if (!hasAnyAllocation) {
+      // If none are filled, that's OK
+      return { valid: true };
+    }
+
+    // If ANY are filled, check that ALL are filled and sum to 100%
+    for (const set of holdingsSets) {
+      if (!set.holdings) continue;
+
+      const allFilled = set.holdings.every(h => h.originalAllocationPercent !== null && h.originalAllocationPercent !== undefined && h.originalAllocationPercent !== '');
+
+      if (!allFilled) {
+        return {
+          valid: false,
+          error: `${set.name}: All Original Allocation % values must be filled. Cannot be partially filled.`
+        };
+      }
+
+      const total = set.holdings.reduce((sum, h) => sum + (parseFloat(h.originalAllocationPercent) || 0), 0);
+      if (Math.abs(total - 100) > 0.01) { // Allow small floating point errors
+        return {
+          valid: false,
+          error: `${set.name}: Original Allocation % must sum to 100% (currently ${total.toFixed(2)}%)`
+        };
+      }
+    }
+
+    return { valid: true };
+  };
+
   const validateStep = (stepNum) => {
     const newErrors = {};
 
@@ -142,6 +178,12 @@ export default function ReportDetailsForm({
           }
         }
       });
+
+      // Validate original allocation if any are filled
+      const allocValidation = validateOriginalAllocation();
+      if (!allocValidation.valid) {
+        newErrors.allocation = allocValidation.error;
+      }
     }
 
     setErrors(newErrors);
@@ -929,6 +971,21 @@ export default function ReportDetailsForm({
       )}
 
       {/* Navigation Buttons */}
+      {/* Allocation Validation Error */}
+      {errors.allocation && (
+        <div style={{
+          padding: '12px 16px',
+          backgroundColor: '#f8d7da',
+          border: '1px solid #f5c6cb',
+          borderRadius: '6px',
+          color: '#721c24',
+          fontSize: '14px',
+          marginBottom: '20px',
+        }}>
+          ⚠️ {errors.allocation}
+        </div>
+      )}
+
       <div
         style={{
           display: 'flex',
