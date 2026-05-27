@@ -14,6 +14,7 @@ export default function ReportDetailsForm({
   const [errors, setErrors] = useState({});
   const [lastSaved, setLastSaved] = useState(null);
   const [hasSavedDraft, setHasSavedDraft] = useState(false);
+  const [isInitialMount, setIsInitialMount] = useState(true);
 
   // Step 1: Client & Report Details
   const [clientFullName, setClientFullName] = useState(clientName || '');
@@ -54,21 +55,30 @@ export default function ReportDetailsForm({
   );
   const [colorScheme, setColorScheme] = useState('dark-navy');
 
-  // Load saved draft on mount
+  // Load saved draft on mount (critical: restore state BEFORE auto-save runs)
   useEffect(() => {
     const savedDraft = localStorage.getItem(STORAGE_KEY);
     if (savedDraft) {
       try {
         const draft = JSON.parse(savedDraft);
+        console.log('[ReportDetailsForm] Draft detected on mount, showing resume banner');
         setHasSavedDraft(true);
       } catch (err) {
         console.error('Error loading draft:', err);
       }
     }
+    // Mark that initial mount is complete (allows auto-save to run after this)
+    setIsInitialMount(false);
   }, []);
 
   // Auto-save form state to localStorage whenever it changes
+  // CRITICAL: Skip auto-save on initial mount to avoid overwriting previously saved draft with defaults
   useEffect(() => {
+    if (isInitialMount) {
+      console.log('[ReportDetailsForm] Skipping auto-save on initial mount to preserve loaded draft');
+      return;
+    }
+
     const formState = {
       step,
       clientFullName,
@@ -82,9 +92,10 @@ export default function ReportDetailsForm({
       colorScheme,
       savedAt: new Date().toISOString(),
     };
+    console.log('[ReportDetailsForm] Auto-saving form state to localStorage');
     localStorage.setItem(STORAGE_KEY, JSON.stringify(formState));
     setLastSaved(new Date());
-  }, [step, clientFullName, reportDate, primaryAdvisor, secondaryAdvisor, reportPeriod, accountsData, companyName, confidentialityNotice, colorScheme]);
+  }, [isInitialMount, step, clientFullName, reportDate, primaryAdvisor, secondaryAdvisor, reportPeriod, accountsData, companyName, confidentialityNotice, colorScheme]);
 
   const loadDraft = () => {
     const savedDraft = localStorage.getItem(STORAGE_KEY);
@@ -124,34 +135,22 @@ export default function ReportDetailsForm({
   };
 
   const validateOriginalAllocation = () => {
-    // Check if any fund has originalAllocationPercent filled
-    const hasAnyAllocation = holdingsSets.some(set =>
-      set.holdings && set.holdings.some(h => h.originalAllocationPercent !== null && h.originalAllocationPercent !== undefined && h.originalAllocationPercent !== '')
-    );
+    // Validation rules:
+    // - If total allocation = 0%, that's OK (completely blank)
+    // - If total allocation = 100%, that's OK (complete)
+    // - If total allocation is 0.1% - 99.9%, that's NOT OK (partial fill - block it)
 
-    if (!hasAnyAllocation) {
-      // If none are filled, that's OK
-      return { valid: true };
-    }
-
-    // If ANY are filled, check that ALL are filled and sum to 100%
     for (const set of holdingsSets) {
       if (!set.holdings) continue;
 
-      const allFilled = set.holdings.every(h => h.originalAllocationPercent !== null && h.originalAllocationPercent !== undefined && h.originalAllocationPercent !== '');
-
-      if (!allFilled) {
-        return {
-          valid: false,
-          error: `${set.name}: All Original Allocation % values must be filled. Cannot be partially filled.`
-        };
-      }
-
       const total = set.holdings.reduce((sum, h) => sum + (parseFloat(h.originalAllocationPercent) || 0), 0);
-      if (Math.abs(total - 100) > 0.01) { // Allow small floating point errors
+
+      // Check if allocation is partially filled (between 0.1% and 99.9%)
+      if (total > 0.01 && Math.abs(total - 100) > 0.01) {
+        // Partial fill detected - not allowed
         return {
           valid: false,
-          error: `${set.name}: Original Allocation % must sum to 100% (currently ${total.toFixed(2)}%)`
+          error: `${set.name}: Original Allocation % must be either completely blank (0%) or sum to 100%. Currently ${total.toFixed(2)}% - please either fill all allocations to 100% or leave them blank.`
         };
       }
     }
@@ -193,8 +192,30 @@ export default function ReportDetailsForm({
     return Object.keys(newErrors).length === 0;
   };
 
+  const saveDraft = () => {
+    // Explicitly save the current form state to localStorage
+    const formState = {
+      step,
+      clientFullName,
+      reportDate,
+      primaryAdvisor,
+      secondaryAdvisor,
+      reportPeriod,
+      accountsData,
+      companyName,
+      confidentialityNotice,
+      colorScheme,
+      savedAt: new Date().toISOString(),
+    };
+    console.log('[ReportDetailsForm] Explicitly saving draft to localStorage');
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(formState));
+    setLastSaved(new Date());
+  };
+
   const handleNextStep = () => {
     if (validateStep(step)) {
+      // Save draft before moving to next step
+      saveDraft();
       setStep(step + 1);
     }
   };
@@ -650,8 +671,8 @@ export default function ReportDetailsForm({
                     </label>
                     <input
                       type="number"
-                      value={account.initialCapital}
-                      onChange={(e) => handleAccountChange(idx, 'initialCapital', parseFloat(e.target.value) || '')}
+                      value={account.initialCapital === null || account.initialCapital === undefined ? '' : account.initialCapital}
+                      onChange={(e) => handleAccountChange(idx, 'initialCapital', e.target.value === '' ? '' : parseFloat(e.target.value) || '')}
                       placeholder="e.g., 100000"
                       style={{
                         padding: '12px 16px',
@@ -674,8 +695,8 @@ export default function ReportDetailsForm({
                     </label>
                     <input
                       type="number"
-                      value={account.totalTopUps}
-                      onChange={(e) => handleAccountChange(idx, 'totalTopUps', parseFloat(e.target.value) || '')}
+                      value={account.totalTopUps === null || account.totalTopUps === undefined ? '' : account.totalTopUps}
+                      onChange={(e) => handleAccountChange(idx, 'totalTopUps', e.target.value === '' ? '' : parseFloat(e.target.value) || '')}
                       placeholder="e.g., 50000"
                       style={{
                         padding: '12px 16px',
@@ -723,8 +744,8 @@ export default function ReportDetailsForm({
                       </label>
                       <input
                         type="number"
-                        value={account.premiumAmount}
-                        onChange={(e) => handleAccountChange(idx, 'premiumAmount', parseFloat(e.target.value) || '')}
+                        value={account.premiumAmount === null || account.premiumAmount === undefined ? '' : account.premiumAmount}
+                        onChange={(e) => handleAccountChange(idx, 'premiumAmount', e.target.value === '' ? '' : parseFloat(e.target.value) || '')}
                         placeholder={account.premiumFrequency === 'annual' ? 'e.g., 12000' : 'e.g., 1000'}
                         style={{
                           padding: '12px 16px',
@@ -749,8 +770,8 @@ export default function ReportDetailsForm({
                       </label>
                       <input
                         type="number"
-                        value={account.regularTopUps}
-                        onChange={(e) => handleAccountChange(idx, 'regularTopUps', parseFloat(e.target.value) || '')}
+                        value={account.regularTopUps === null || account.regularTopUps === undefined ? '' : account.regularTopUps}
+                        onChange={(e) => handleAccountChange(idx, 'regularTopUps', e.target.value === '' ? '' : parseFloat(e.target.value) || '')}
                         placeholder="e.g., 10000"
                         style={{
                           padding: '12px 16px',
@@ -768,8 +789,8 @@ export default function ReportDetailsForm({
                       </label>
                       <input
                         type="number"
-                        value={account.regularWithdrawals}
-                        onChange={(e) => handleAccountChange(idx, 'regularWithdrawals', parseFloat(e.target.value) || '')}
+                        value={account.regularWithdrawals === null || account.regularWithdrawals === undefined ? '' : account.regularWithdrawals}
+                        onChange={(e) => handleAccountChange(idx, 'regularWithdrawals', e.target.value === '' ? '' : parseFloat(e.target.value) || '')}
                         placeholder="e.g., 5000"
                         style={{
                           padding: '12px 16px',
@@ -828,8 +849,8 @@ export default function ReportDetailsForm({
                     </label>
                     <input
                       type="number"
-                      value={account.currentValuation}
-                      onChange={(e) => handleAccountChange(idx, 'currentValuation', parseFloat(e.target.value) || 0)}
+                      value={account.currentValuation === null || account.currentValuation === undefined || account.currentValuation === 0 ? '' : account.currentValuation}
+                      onChange={(e) => handleAccountChange(idx, 'currentValuation', e.target.value === '' ? '' : parseFloat(e.target.value) || '')}
                       placeholder="e.g., 125000"
                       style={{
                         padding: '12px 16px',
@@ -994,31 +1015,58 @@ export default function ReportDetailsForm({
           display: 'flex',
           gap: '12px',
           marginTop: '40px',
-          justifyContent: 'flex-end',
+          justifyContent: 'space-between',
         }}
       >
-        {step > 1 && (
-          <button
-            onClick={handlePrevStep}
-            style={{
-              padding: '12px 24px',
-              backgroundColor: '#f0f0f0',
-              color: '#333',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontSize: '14px',
-              fontWeight: '600',
-              transition: 'background-color 0.2s ease',
-            }}
-            onMouseEnter={(e) => (e.target.style.backgroundColor = '#e0e0e0')}
-            onMouseLeave={(e) => (e.target.style.backgroundColor = '#f0f0f0')}
-          >
-            Back
-          </button>
-        )}
+        <button
+          onClick={saveDraft}
+          style={{
+            padding: '12px 24px',
+            backgroundColor: '#e8e8e8',
+            color: '#333',
+            border: '1px solid #ddd',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: '600',
+            transition: 'all 0.2s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.target.style.backgroundColor = '#d8d8d8';
+            e.target.style.borderColor = '#bbb';
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.backgroundColor = '#e8e8e8';
+            e.target.style.borderColor = '#ddd';
+          }}
+          title="Save your progress so far"
+        >
+          💾 Save Draft
+        </button>
 
-        {step < 3 && (
+        <div style={{ display: 'flex', gap: '12px' }}>
+          {step > 1 && (
+            <button
+              onClick={handlePrevStep}
+              style={{
+                padding: '12px 24px',
+                backgroundColor: '#f0f0f0',
+                color: '#333',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '600',
+                transition: 'background-color 0.2s ease',
+              }}
+              onMouseEnter={(e) => (e.target.style.backgroundColor = '#e0e0e0')}
+              onMouseLeave={(e) => (e.target.style.backgroundColor = '#f0f0f0')}
+            >
+              Back
+            </button>
+          )}
+
+          {step < 3 && (
           <button
             onClick={handleNextStep}
             style={{
@@ -1037,9 +1085,9 @@ export default function ReportDetailsForm({
           >
             Next
           </button>
-        )}
+          )}
 
-        {step === 3 && (
+          {step === 3 && (
           <button
             onClick={handleGenerateReport}
             style={{
@@ -1058,9 +1106,9 @@ export default function ReportDetailsForm({
           >
             Generate Report
           </button>
-        )}
+          )}
 
-        <button
+          <button
           onClick={onCancel}
           style={{
             padding: '12px 24px',
@@ -1084,6 +1132,7 @@ export default function ReportDetailsForm({
         >
           Cancel
         </button>
+        </div>
       </div>
     </div>
   );

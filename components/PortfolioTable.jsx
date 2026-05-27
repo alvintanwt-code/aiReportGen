@@ -51,22 +51,28 @@ export default function PortfolioTable({
   };
 
   const validateAllocationSum = () => {
-    // Check if all holdings have original allocation filled
-    const allFilled = holdings.every(h => h.originalAllocationPercent !== null && h.originalAllocationPercent !== undefined && h.originalAllocationPercent !== '');
+    // Validation rules:
+    // - If total allocation = 0%, that's OK (completely blank)
+    // - If total allocation = 100%, that's OK (complete)
+    // - If total allocation is 0.1% - 99.9%, that's NOT OK (partial fill)
 
-    if (allFilled) {
-      const total = holdings.reduce((sum, h) => sum + (parseFloat(h.originalAllocationPercent) || 0), 0);
+    const total = holdings.reduce((sum, h) => sum + (parseFloat(h.originalAllocationPercent) || 0), 0);
+    const totalStr = !isNaN(total) && isFinite(total) ? total.toFixed(2) : '0.00';
 
-      if (total !== 100) {
-        const totalStr = !isNaN(total) && isFinite(total) ? total.toFixed(2) : '0.00';
-        const message = `⚠️ Original Allocation total is ${totalStr}%. It should be 100%.`;
-        console.warn('[PortfolioTable]', message);
-        // Return the total so parent can display warning
-        return { isValid: false, total, message };
-      }
-      return { isValid: true, total };
+    // Check if allocation is completely blank (0%)
+    if (total <= 0.01) {
+      return { isValid: true, total, message: 'Original Allocation is blank (OK)' };
     }
-    return { isValid: null, message: 'Fill in all Original Allocation values' };
+
+    // Check if allocation is complete (100%)
+    if (Math.abs(total - 100) <= 0.01) {
+      return { isValid: true, total, message: 'Original Allocation sums to 100% (OK)' };
+    }
+
+    // Partial fill detected - not allowed
+    const message = `⚠️ Original Allocation total is ${totalStr}%. Must be either 0% (blank) or 100% (complete). Cannot be partially filled.`;
+    console.warn('[PortfolioTable]', message);
+    return { isValid: false, total, message };
   };
 
   const handleDeleteHolding = (holding) => {
