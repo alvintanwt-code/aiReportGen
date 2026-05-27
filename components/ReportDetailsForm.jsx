@@ -366,42 +366,22 @@ export default function ReportDetailsForm({
             )}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>
-                Report Date
-              </label>
-              <input
-                type="date"
-                value={reportDate}
-                onChange={(e) => setReportDate(e.target.value)}
-                style={{
-                  padding: '12px 16px',
-                  fontSize: '15px',
-                  border: '1px solid #ddd',
-                  borderRadius: '8px',
-                  outline: 'none',
-                }}
-              />
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>
-                Report Period (As of)
-              </label>
-              <input
-                type="date"
-                value={reportPeriod}
-                onChange={(e) => setReportPeriod(e.target.value)}
-                style={{
-                  padding: '12px 16px',
-                  fontSize: '15px',
-                  border: '1px solid #ddd',
-                  borderRadius: '8px',
-                  outline: 'none',
-                }}
-              />
-            </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>
+              Report Period (As of)
+            </label>
+            <input
+              type="date"
+              value={reportPeriod}
+              onChange={(e) => setReportPeriod(e.target.value)}
+              style={{
+                padding: '12px 16px',
+                fontSize: '15px',
+                border: '1px solid #ddd',
+                borderRadius: '8px',
+                outline: 'none',
+              }}
+            />
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -498,43 +478,23 @@ export default function ReportDetailsForm({
                 )}
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>
-                    Policy/Account Number
-                  </label>
-                  <input
-                    type="text"
-                    value={account.policyNumber}
-                    onChange={(e) => handleAccountChange(idx, 'policyNumber', e.target.value)}
-                    placeholder="e.g., ABC123456"
-                    style={{
-                      padding: '12px 16px',
-                      fontSize: '15px',
-                      border: '1px solid #ddd',
-                      borderRadius: '8px',
-                      outline: 'none',
-                    }}
-                  />
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>
-                    Account Start Date
-                  </label>
-                  <input
-                    type="date"
-                    value={account.startDate}
-                    onChange={(e) => handleAccountChange(idx, 'startDate', e.target.value)}
-                    style={{
-                      padding: '12px 16px',
-                      fontSize: '15px',
-                      border: '1px solid #ddd',
-                      borderRadius: '8px',
-                      outline: 'none',
-                    }}
-                  />
-                </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>
+                  Policy/Account Number
+                </label>
+                <input
+                  type="text"
+                  value={account.policyNumber}
+                  onChange={(e) => handleAccountChange(idx, 'policyNumber', e.target.value)}
+                  placeholder="e.g., ABC123456"
+                  style={{
+                    padding: '12px 16px',
+                    fontSize: '15px',
+                    border: '1px solid #ddd',
+                    borderRadius: '8px',
+                    outline: 'none',
+                  }}
+                />
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -580,6 +540,7 @@ export default function ReportDetailsForm({
                   <option value="">Select Provider</option>
                   <option value="aia">AIA</option>
                   <option value="etiqa">Etiqa</option>
+                  <option value="fame">FAME Advisory</option>
                   <option value="fwd">FWD</option>
                   <option value="hsbc-life">HSBC Life</option>
                   <option value="income">Income</option>
