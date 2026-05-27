@@ -20,7 +20,7 @@ export default function PortfolioTable({
     { key: 'currency', label: 'Currency', width: '80px' },
     { key: 'fxRateToSgd', label: 'FX Rate to SGD', width: '100px', type: 'number' },
     { key: 'marketValueOriginal', label: 'Market Value (Original)', width: '140px', readOnly: true },
-    { key: 'marketValueSgd', label: 'Market Value (SGD)', width: '140px', readOnly: true },
+    { key: 'marketValueSgd', label: 'Portfolio Value (SGD)', width: '140px', readOnly: true },
     { key: 'weightagePercent', label: 'Weightage %', width: '100px', readOnly: true },
     { key: 'action', label: 'Action', width: '60px', isAction: true },
   ];
