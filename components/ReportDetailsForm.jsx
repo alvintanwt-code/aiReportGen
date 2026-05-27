@@ -14,7 +14,6 @@ export default function ReportDetailsForm({
   const [errors, setErrors] = useState({});
   const [lastSaved, setLastSaved] = useState(null);
   const [hasSavedDraft, setHasSavedDraft] = useState(false);
-  const [isInitialMount, setIsInitialMount] = useState(true);
 
   // Step 1: Client & Report Details
   const [clientFullName, setClientFullName] = useState(clientName || '');
@@ -61,41 +60,32 @@ export default function ReportDetailsForm({
     if (savedDraft) {
       try {
         const draft = JSON.parse(savedDraft);
-        console.log('[ReportDetailsForm] Draft detected on mount, showing resume banner');
+        console.log('[ReportDetailsForm] Draft detected on mount, LOADING IMMEDIATELY to prevent auto-save overwrite');
+
+        // LOAD THE DRAFT IMMEDIATELY - don't wait for user to click Resume
+        // This ensures form has correct values BEFORE auto-save runs
+        if ('step' in draft) setStep(draft.step);
+        if ('clientFullName' in draft) setClientFullName(draft.clientFullName);
+        if ('reportDate' in draft) setReportDate(draft.reportDate);
+        if ('primaryAdvisor' in draft) setPrimaryAdvisor(draft.primaryAdvisor);
+        if ('secondaryAdvisor' in draft) setSecondaryAdvisor(draft.secondaryAdvisor);
+        if ('reportPeriod' in draft) setReportPeriod(draft.reportPeriod);
+        if ('accountsData' in draft) setAccountsData(draft.accountsData);
+        if ('companyName' in draft) setCompanyName(draft.companyName);
+        if ('confidentialityNotice' in draft) setConfidentialityNotice(draft.confidentialityNotice);
+        if ('colorScheme' in draft) setColorScheme(draft.colorScheme);
+
+        // Show the banner so user knows they can start fresh if they want
         setHasSavedDraft(true);
+        console.log('[ReportDetailsForm] Draft auto-loaded on mount to preserve data');
       } catch (err) {
         console.error('Error loading draft:', err);
       }
     }
-    // Mark that initial mount is complete (allows auto-save to run after this)
-    setIsInitialMount(false);
   }, []);
 
-  // Auto-save form state to localStorage whenever it changes
-  // CRITICAL: Skip auto-save on initial mount to avoid overwriting previously saved draft with defaults
-  useEffect(() => {
-    if (isInitialMount) {
-      console.log('[ReportDetailsForm] Skipping auto-save on initial mount to preserve loaded draft');
-      return;
-    }
-
-    const formState = {
-      step,
-      clientFullName,
-      reportDate,
-      primaryAdvisor,
-      secondaryAdvisor,
-      reportPeriod,
-      accountsData,
-      companyName,
-      confidentialityNotice,
-      colorScheme,
-      savedAt: new Date().toISOString(),
-    };
-    console.log('[ReportDetailsForm] Auto-saving form state to localStorage');
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(formState));
-    setLastSaved(new Date());
-  }, [isInitialMount, step, clientFullName, reportDate, primaryAdvisor, secondaryAdvisor, reportPeriod, accountsData, companyName, confidentialityNotice, colorScheme]);
+  // Removed auto-save to prevent overwriting saved draft
+  // Only save explicitly when user clicks "Save Draft" or "Next"
 
   const loadDraft = () => {
     const savedDraft = localStorage.getItem(STORAGE_KEY);
