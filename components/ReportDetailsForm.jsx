@@ -207,9 +207,9 @@ export default function ReportDetailsForm({
       capitalInvested: Math.round(capitalInvested),
       currentValue: Math.round(currentValue),
       gain: Math.round(gain),
-      pAndL: pAndLPercent.toFixed(2),
-      cagr: cagr.toFixed(2),
-      years: yearsDiff.toFixed(1),
+      pAndL: !isNaN(pAndLPercent) && isFinite(pAndLPercent) ? pAndLPercent.toFixed(2) : '0.00',
+      cagr: !isNaN(cagr) && isFinite(cagr) ? cagr.toFixed(2) : '0.00',
+      years: !isNaN(yearsDiff) && isFinite(yearsDiff) ? yearsDiff.toFixed(1) : '0.0',
     };
   };
 

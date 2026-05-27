@@ -67,7 +67,7 @@ export default function MultipleHoldingsSets({
                   color: '#FF8F44',
                 }}
               >
-                SGD {Number(combinedTotal || 0).toFixed(2)}
+                SGD {(() => { const num = Number(combinedTotal || 0); return !isNaN(num) && isFinite(num) ? num.toFixed(2) : '0.00'; })()}
               </p>
             </div>
             <div>

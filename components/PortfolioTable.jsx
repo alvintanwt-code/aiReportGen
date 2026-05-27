@@ -58,7 +58,8 @@ export default function PortfolioTable({
       const total = holdings.reduce((sum, h) => sum + (parseFloat(h.originalAllocationPercent) || 0), 0);
 
       if (total !== 100) {
-        const message = `⚠️ Original Allocation total is ${total.toFixed(2)}%. It should be 100%.`;
+        const totalStr = !isNaN(total) && isFinite(total) ? total.toFixed(2) : '0.00';
+        const message = `⚠️ Original Allocation total is ${totalStr}%. It should be 100%.`;
         console.warn('[PortfolioTable]', message);
         // Return the total so parent can display warning
         return { isValid: false, total, message };
@@ -84,11 +85,13 @@ export default function PortfolioTable({
   };
 
   const formatCurrency = (value) => {
-    return Number(value || 0).toFixed(2);
+    const num = Number(value || 0);
+    return !isNaN(num) && isFinite(num) ? num.toFixed(2) : '0.00';
   };
 
   const formatPercentage = (value) => {
-    return Number(value || 0).toFixed(2);
+    const num = Number(value || 0);
+    return !isNaN(num) && isFinite(num) ? num.toFixed(2) : '0.00';
   };
 
   const renderCell = (holding, column) => {
@@ -130,7 +133,8 @@ export default function PortfolioTable({
     // Format display value
     let displayValue = value;
     if (column.type === 'number' && !column.readOnly) {
-      displayValue = Number(value || 0).toFixed(2);
+      const num = Number(value || 0);
+      displayValue = !isNaN(num) && isFinite(num) ? num.toFixed(2) : '0.00';
     } else if (column.key === 'marketValueOriginal' || column.key === 'marketValueSgd') {
       displayValue = formatCurrency(value);
     } else if (column.key === 'weightagePercent') {
@@ -300,6 +304,7 @@ export default function PortfolioTable({
         const allFilled = holdings.every(h => h.originalAllocationPercent !== null && h.originalAllocationPercent !== undefined && h.originalAllocationPercent !== '');
 
         if (allFilled && allocationValidation.total !== 100) {
+          const totalStr = !isNaN(allocationValidation.total) && isFinite(allocationValidation.total) ? allocationValidation.total.toFixed(2) : '0.00';
           return (
             <div style={{
               marginTop: '15px',
@@ -310,10 +315,11 @@ export default function PortfolioTable({
               color: '#856404',
               fontSize: '13px',
             }}>
-              ⚠️ <strong>Original Allocation Total: {allocationValidation.total.toFixed(2)}%</strong> (Should be 100%)
+              ⚠️ <strong>Original Allocation Total: {totalStr}%</strong> (Should be 100%)
             </div>
           );
         } else if (allFilled && allocationValidation.total === 100) {
+          const totalStr = !isNaN(allocationValidation.total) && isFinite(allocationValidation.total) ? allocationValidation.total.toFixed(2) : '0.00';
           return (
             <div style={{
               marginTop: '15px',
@@ -324,7 +330,7 @@ export default function PortfolioTable({
               color: '#155724',
               fontSize: '13px',
             }}>
-              ✅ <strong>Original Allocation: {allocationValidation.total.toFixed(2)}%</strong> (Correct!)
+              ✅ <strong>Original Allocation: {totalStr}%</strong> (Correct!)
             </div>
           );
         }
