@@ -1,13 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import FNAUploadView from '../../components/FNAUploadView';
 import ClientList from '../../components/ClientList';
 
-export default function FNAPage() {
+function FNAContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [selectedClientId, setSelectedClientId] = useState(null);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -106,5 +105,17 @@ export default function FNAPage() {
         // Data is saved and navigation is handled by the component
       }}
     />
+  );
+}
+
+export default function FNAPage() {
+  return (
+    <Suspense
+      fallback={
+        <div style={{ padding: '40px', textAlign: 'center' }}>Loading...</div>
+      }
+    >
+      <FNAContent />
+    </Suspense>
   );
 }

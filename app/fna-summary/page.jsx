@@ -1,10 +1,10 @@
 'use client';
 
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import FNASummaryDashboard from '../../components/FNASummaryDashboard';
 
-export default function FNASummaryPage() {
+function FNASummaryContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [extractedData, setExtractedData] = useState(null);
@@ -58,5 +58,19 @@ export default function FNASummaryPage() {
         router.push(`/fna-4factors?clientId=${clientId}`);
       }}
     />
+  );
+}
+
+export default function FNASummaryPage() {
+  return (
+    <Suspense
+      fallback={
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+          <p>Loading...</p>
+        </div>
+      }
+    >
+      <FNASummaryContent />
+    </Suspense>
   );
 }

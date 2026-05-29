@@ -1,10 +1,10 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import FNA4FactorPlanning from '../../components/FNA4FactorPlanning';
 
-export default function FNA4FactorsPage() {
+function FNA4FactorsContent() {
   const searchParams = useSearchParams();
   const [extractedData, setExtractedData] = useState(null);
   const [metrics, setMetrics] = useState(null);
@@ -66,4 +66,18 @@ export default function FNA4FactorsPage() {
   }
 
   return <FNA4FactorPlanning extractedData={extractedData} metrics={metrics} />;
+}
+
+export default function FNA4FactorsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+          <p>Loading...</p>
+        </div>
+      }
+    >
+      <FNA4FactorsContent />
+    </Suspense>
+  );
 }
