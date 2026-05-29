@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import UploadArea from './UploadArea';
+import FNAUploadArea from './FNAUploadArea';
 
 export default function FNAUploadView({ clientId, clientName, onUploadComplete }) {
   const [uploadedFiles, setUploadedFiles] = useState([]);
@@ -81,7 +81,7 @@ export default function FNAUploadView({ clientId, clientName, onUploadComplete }
 
       {/* Upload Area */}
       <div style={{ marginBottom: '40px' }}>
-        <UploadArea onFilesSelected={handleFilesSelected} maxFiles={4} label="Upload FNA Screenshots (Max 4)" />
+        <FNAUploadArea onFilesSelected={handleFilesSelected} maxFiles={4} label="Upload FNA Screenshots (Max 4)" />
       </div>
 
       {/* Uploaded Files List */}
