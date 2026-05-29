@@ -95,14 +95,15 @@ export default function FNASummaryDashboard({ extractedData, onContinue }) {
 
   const SectionCard = ({ title, children, expanded = false }) => (
     <div style={{
-      backgroundColor: '#ffffff',
-      border: '1px solid #e8e8e8',
-      borderRadius: '8px',
+      backgroundColor: 'rgba(255, 255, 255, 0.75)',
+      backdropFilter: 'blur(20px)',
+      border: '1px solid rgba(255, 255, 255, 0.6)',
+      borderRadius: '16px',
       padding: '24px',
       marginBottom: '20px',
       transition: 'all 0.3s ease'
     }}>
-      <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#101b3a', marginBottom: '16px' }}>
+      <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#1a1a1a', marginBottom: '16px' }}>
         {title}
       </h3>
       {children}
@@ -113,10 +114,12 @@ export default function FNASummaryDashboard({ extractedData, onContinue }) {
     <div style={{
       flex: 1,
       padding: '16px',
-      backgroundColor: '#f8f9fa',
-      borderRadius: '6px',
+      backgroundColor: 'rgba(255, 255, 255, 0.6)',
+      backdropFilter: 'blur(10px)',
+      borderRadius: '12px',
       textAlign: 'center',
-      borderLeft: `4px solid ${color}`
+      borderLeft: `4px solid ${color}`,
+      border: `1px solid rgba(255, 255, 255, 0.5)`,
     }}>
       <p style={{ fontSize: '12px', color: '#666', marginBottom: '8px' }}>{label}</p>
       <p style={{ fontSize: '24px', fontWeight: '700', color: color, marginBottom: '4px' }}>{value}</p>
@@ -125,14 +128,14 @@ export default function FNASummaryDashboard({ extractedData, onContinue }) {
   );
 
   return (
-    <div style={{ padding: '40px 24px', backgroundColor: '#f8f9fa', minHeight: '100vh' }}>
+    <div className="gradient-northern-lights" style={{ padding: '40px 24px', minHeight: '100vh' }}>
       {/* Header */}
       <div style={{ marginBottom: '40px' }}>
-        <h1 style={{ fontSize: '32px', fontWeight: '700', color: '#101b3a', marginBottom: '8px' }}>
+        <h1 style={{ fontSize: '40px', fontWeight: '700', color: '#1a1a1a', marginBottom: '8px' }}>
           Financial Health Summary
         </h1>
-        <p style={{ fontSize: '14px', color: '#666' }}>
-          {extractedData.personalInfo?.name || 'Client'} • Age {metrics.age}
+        <p style={{ fontSize: '16px', color: '#666' }}>
+          <strong>{extractedData.personalInfo?.name || 'Client'}</strong> • Age {metrics.age}
         </p>
       </div>
 

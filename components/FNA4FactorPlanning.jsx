@@ -113,13 +113,13 @@ export default function FNA4FactorPlanning({ extractedData, metrics }) {
   };
 
   return (
-    <div style={{ padding: '40px 24px', backgroundColor: '#f8f9fa', minHeight: '100vh' }}>
+    <div className="gradient-northern-lights" style={{ padding: '40px 24px', minHeight: '100vh' }}>
       {/* Header */}
       <div style={{ marginBottom: '40px' }}>
-        <h1 style={{ fontSize: '32px', fontWeight: '700', color: '#101b3a', marginBottom: '8px' }}>
+        <h1 style={{ fontSize: '40px', fontWeight: '700', color: '#1a1a1a', marginBottom: '8px' }}>
           4 Factor Planning Framework
         </h1>
-        <p style={{ fontSize: '14px', color: '#666', lineHeight: '1.6', maxWidth: '800px' }}>
+        <p style={{ fontSize: '15px', color: '#666', lineHeight: '1.6', maxWidth: '800px' }}>
           {phaseRecs.summary}
         </p>
       </div>
@@ -127,15 +127,16 @@ export default function FNA4FactorPlanning({ extractedData, metrics }) {
       <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr', gap: '24px' }}>
         {/* Left Sidebar - Factor Toggles */}
         <div style={{
-          backgroundColor: '#ffffff',
-          border: '1px solid #e8e8e8',
-          borderRadius: '8px',
+          backgroundColor: 'rgba(255, 255, 255, 0.75)',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255, 255, 255, 0.6)',
+          borderRadius: '16px',
           padding: '24px',
           height: 'fit-content',
           position: 'sticky',
           top: '24px'
         }}>
-          <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#101b3a', marginBottom: '16px' }}>
+          <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#1a1a1a', marginBottom: '16px' }}>
             Planning Factors
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -172,9 +173,10 @@ export default function FNA4FactorPlanning({ extractedData, metrics }) {
               <div
                 key={factorKey}
                 style={{
-                  backgroundColor: '#ffffff',
+                  backgroundColor: 'rgba(255, 255, 255, 0.75)',
+                  backdropFilter: 'blur(20px)',
                   border: `2px solid ${FACTOR_COLORS[factorKey]}`,
-                  borderRadius: '8px',
+                  borderRadius: '16px',
                   padding: '24px',
                   marginBottom: '20px',
                   animation: 'slideIn 0.3s ease'
@@ -218,7 +220,7 @@ export default function FNA4FactorPlanning({ extractedData, metrics }) {
       </div>
 
       {/* Footer */}
-      <div style={{ marginTop: '40px', padding: '24px', backgroundColor: '#e3f2fd', borderRadius: '8px', textAlign: 'center' }}>
+      <div style={{ marginTop: '40px', padding: '24px', backgroundColor: 'rgba(227, 242, 253, 0.8)', backdropFilter: 'blur(20px)', border: '1px solid rgba(21, 101, 192, 0.3)', borderRadius: '16px', textAlign: 'center' }}>
         <p style={{ fontSize: '13px', color: '#1565c0', lineHeight: '1.6' }}>
           💡 <strong>Tip:</strong> Review this plan periodically and adjust based on life changes, market conditions, and progress toward your goals.
         </p>
