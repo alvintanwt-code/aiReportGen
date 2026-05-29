@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { reload } from 'firebase/auth';
 import ReviewUploadView from '../components/ReviewUploadView';
 import LoginPage from '../components/LoginPage';
@@ -12,6 +13,7 @@ import { auth } from '../lib/firebase';
 const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
 function LandingPage({ clients, reviews, onAddClient, onSelectClient, onDeleteClient, onNewReview, onPastReviews, userName, searchQuery, onSearchChange }) {
+  const router = useRouter();
   const [clientName, setClientName] = useState('');
   const [displayedText, setDisplayedText] = useState('');
 
@@ -298,16 +300,68 @@ function LandingPage({ clients, reviews, onAddClient, onSelectClient, onDeleteCl
                   </div>
 
                   {/* Action Buttons */}
-                  <div style={{ display: 'flex', gap: '12px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onNewReview(client.id);
+                        }}
+                        style={{
+                          flex: 1,
+                          padding: '10px 16px',
+                          backgroundColor: '#FFA366',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '22px',
+                          cursor: 'pointer',
+                          fontSize: '13px',
+                          fontWeight: '500',
+                          transition: 'background-color 0.2s ease',
+                          fontFamily: "'Poppins', sans-serif",
+                        }}
+                        onMouseEnter={(e) => e.target.style.backgroundColor = '#FF8F44'}
+                        onMouseLeave={(e) => e.target.style.backgroundColor = '#FFA366'}
+                      >
+                        New Review
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onPastReviews(client.id);
+                        }}
+                        style={{
+                          flex: 1,
+                          padding: '10px 16px',
+                          backgroundColor: '#e8e8e8',
+                          color: '#1a1a1a',
+                          border: 'none',
+                          borderRadius: '22px',
+                          cursor: 'pointer',
+                          fontSize: '13px',
+                          fontWeight: '500',
+                          transition: 'background-color 0.2s ease',
+                          fontFamily: "'Poppins', sans-serif",
+                          opacity: stats.reviewCount > 0 ? 1 : 0.5,
+                        }}
+                        disabled={stats.reviewCount === 0}
+                        onMouseEnter={(e) => {
+                          if (stats.reviewCount > 0) e.target.style.backgroundColor = '#d0d0d0';
+                        }}
+                        onMouseLeave={(e) => e.target.style.backgroundColor = '#e8e8e8'}
+                      >
+                        Past Reviews
+                      </button>
+                    </div>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        onNewReview(client.id);
+                        router.push(`/fna?clientId=${client.id}`);
                       }}
                       style={{
-                        flex: 1,
+                        width: '100%',
                         padding: '10px 16px',
-                        backgroundColor: '#FFA366',
+                        backgroundColor: '#FF8F44',
                         color: 'white',
                         border: 'none',
                         borderRadius: '22px',
@@ -317,37 +371,10 @@ function LandingPage({ clients, reviews, onAddClient, onSelectClient, onDeleteCl
                         transition: 'background-color 0.2s ease',
                         fontFamily: "'Poppins', sans-serif",
                       }}
-                      onMouseEnter={(e) => e.target.style.backgroundColor = '#FF8F44'}
-                      onMouseLeave={(e) => e.target.style.backgroundColor = '#FFA366'}
+                      onMouseEnter={(e) => e.target.style.backgroundColor = '#FF7A1F'}
+                      onMouseLeave={(e) => e.target.style.backgroundColor = '#FF8F44'}
                     >
-                      New Review
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onPastReviews(client.id);
-                      }}
-                      style={{
-                        flex: 1,
-                        padding: '10px 16px',
-                        backgroundColor: '#e8e8e8',
-                        color: '#1a1a1a',
-                        border: 'none',
-                        borderRadius: '22px',
-                        cursor: 'pointer',
-                        fontSize: '13px',
-                        fontWeight: '500',
-                        transition: 'background-color 0.2s ease',
-                        fontFamily: "'Poppins', sans-serif",
-                        opacity: stats.reviewCount > 0 ? 1 : 0.5,
-                      }}
-                      disabled={stats.reviewCount === 0}
-                      onMouseEnter={(e) => {
-                        if (stats.reviewCount > 0) e.target.style.backgroundColor = '#d0d0d0';
-                      }}
-                      onMouseLeave={(e) => e.target.style.backgroundColor = '#e8e8e8'}
-                    >
-                      Past Reviews
+                      Financial Needs Analysis
                     </button>
                   </div>
                 </div>
