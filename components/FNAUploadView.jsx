@@ -136,7 +136,7 @@ export default function FNAUploadView({ clientId, clientName, onUploadComplete }
               <p style={{ fontSize: '14px', color: COLORS.darkGrey, marginBottom: '8px' }}>
                 This will take a moment
               </p>
-              <p style={{ fontSize: '12px', color: COLORS.darkGrey' }}>
+              <p style={{ fontSize: '12px', color: COLORS.darkGrey }}>
                 Processing your financial information
               </p>
             </div>
