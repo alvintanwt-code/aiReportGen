@@ -286,7 +286,7 @@ export default function FNASummaryDashboard({ extractedData, onContinue }) {
                 <div key={index} style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div style={{ width: '16px', height: '16px', backgroundColor: COLORS[index % COLORS.length], borderRadius: '2px' }} />
                   <span style={{ fontSize: '13px', flex: 1 }}>{asset.name}</span>
-                  <strong style={{ fontSize: '13px' }}>S${(asset.value / 1000000).toFixed(1)}M</strong>
+                  <strong style={{ fontSize: '13px' }}>{formatCurrency(asset.value)}</strong>
                 </div>
               ))}
             </div>
