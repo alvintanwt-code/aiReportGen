@@ -9,24 +9,33 @@ export default function FNASummaryDashboard({ extractedData, onContinue }) {
   // Calculate key metrics
   const metrics = useMemo(() => {
     const age = extractedData.personalInfo?.age || 0;
+
+    // Liquid assets (excludes property)
     const liquidAssets = (extractedData.assets?.cashSavings || 0) +
       (extractedData.assets?.cpfOA || 0) +
       (extractedData.assets?.cpfSA || 0) +
       (extractedData.assets?.cpfMA || 0) +
       (extractedData.assets?.equities || 0) +
-      (extractedData.assets?.mutualFunds || 0);
-
-    const totalAssets = liquidAssets +
-      (extractedData.assets?.residentialPropertyValue || 0) +
+      (extractedData.assets?.mutualFunds || 0) +
       (extractedData.assets?.insuranceCashValue || 0);
+
+    // Total assets (includes property)
+    const totalAssets = liquidAssets +
+      (extractedData.assets?.residentialPropertyValue || 0);
 
     const totalLiabilities = (extractedData.liabilities?.loans || 0) +
       (extractedData.liabilities?.mortgage || 0);
 
+    // Net worth (total)
     const netWorth = totalAssets - totalLiabilities;
-    const scorePerAge = age > 0 ? netWorth / age : 0;
 
-    // Determine phase
+    // Liquid net worth (for phase calculation - excludes property)
+    const liquidNetWorth = liquidAssets - totalLiabilities;
+
+    // Use liquid net worth for phase scoring
+    const scorePerAge = age > 0 ? liquidNetWorth / age : 0;
+
+    // Determine phase based on liquid net worth
     let phase = 'Accumulation';
     let phaseColor = '#dc3545';
     let phaseDescription = 'Building foundation, needs growth';
@@ -56,6 +65,7 @@ export default function FNASummaryDashboard({ extractedData, onContinue }) {
       totalAssets,
       totalLiabilities,
       netWorth,
+      liquidNetWorth,
       scorePerAge,
       phase,
       phaseColor,
@@ -87,10 +97,15 @@ export default function FNASummaryDashboard({ extractedData, onContinue }) {
 
   const COLORS = ['#FF8F44', '#4a86e8', '#43d692', '#16a766', '#f691b3', '#ffc107'];
 
+  // Helper function to format currency with full numbers
+  const formatCurrency = (value) => {
+    return `S$${Math.round(value).toLocaleString('en-SG')}`;
+  };
+
   // Insurance coverage data
   const lifeInsurance = extractedData.policies?.filter(p => p.type === 'life') || [];
   const totalSumAssured = lifeInsurance.reduce((sum, p) => sum + (p.sumAssuredDeath || 0), 0);
-  const estimatedNeed = metrics.netWorth * 0.5; // Rough estimate
+  const estimatedNeed = metrics.liquidNetWorth * 0.5; // Rough estimate based on liquid net worth
   const coverageRatio = estimatedNeed > 0 ? (totalSumAssured / estimatedNeed) * 100 : 0;
 
   const SectionCard = ({ title, children, expanded = false }) => (
@@ -187,10 +202,10 @@ export default function FNASummaryDashboard({ extractedData, onContinue }) {
       {/* Key Metrics */}
       <SectionCard title="💰 Key Financial Metrics">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '16px' }}>
-          <MetricBox label="Net Worth" value={`S$${(metrics.netWorth / 1000000).toFixed(1)}M`} color="#4a86e8" />
-          <MetricBox label="Liquid Assets" value={`S$${(metrics.liquidAssets / 1000000).toFixed(1)}M`} color="#43d692" />
-          <MetricBox label="Total Assets" value={`S$${(metrics.totalAssets / 1000000).toFixed(1)}M`} color="#FF8F44" />
-          <MetricBox label="Total Liabilities" value={`S$${(metrics.totalLiabilities / 1000).toFixed(0)}K`} color="#dc3545" />
+          <MetricBox label="Net Worth" value={formatCurrency(metrics.netWorth)} color="#4a86e8" />
+          <MetricBox label="Liquid Assets" value={formatCurrency(metrics.liquidAssets)} color="#43d692" />
+          <MetricBox label="Total Assets" value={formatCurrency(metrics.totalAssets)} color="#FF8F44" />
+          <MetricBox label="Total Liabilities" value={formatCurrency(metrics.totalLiabilities)} color="#dc3545" />
         </div>
       </SectionCard>
 
@@ -225,14 +240,14 @@ export default function FNASummaryDashboard({ extractedData, onContinue }) {
       {/* Savings Rate */}
       <SectionCard title="💸 Monthly Cashflow">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '16px', marginBottom: '20px' }}>
-          <MetricBox label="Monthly Income" value={`S$${(metrics.monthlyIncome).toLocaleString()}`} color="#43d692" />
-          <MetricBox label="Monthly Expenses" value={`S$${(metrics.monthlyExpenses).toLocaleString()}`} color="#dc3545" />
-          <MetricBox label="Monthly Savings" value={`S$${(metrics.monthlySavings).toLocaleString()}`} color={metrics.monthlySavings > 0 ? '#28a745' : '#dc3545'} />
+          <MetricBox label="Monthly Income" value={formatCurrency(metrics.monthlyIncome)} color="#43d692" />
+          <MetricBox label="Monthly Expenses" value={formatCurrency(metrics.monthlyExpenses)} color="#dc3545" />
+          <MetricBox label="Monthly Savings" value={formatCurrency(metrics.monthlySavings)} color={metrics.monthlySavings > 0 ? '#28a745' : '#dc3545'} />
           <MetricBox label="Savings Rate" value={`${metrics.savingsRate.toFixed(1)}%`} color="#4a86e8" />
         </div>
         {metrics.monthlySavings > 0 && (
           <div style={{ padding: '12px', backgroundColor: '#d4edda', borderRadius: '6px', color: '#155724', fontSize: '13px' }}>
-            ✅ <strong>Good discipline:</strong> You're saving S${metrics.monthlySavings.toLocaleString()} monthly. Keep it up!
+            ✅ <strong>Good discipline:</strong> You're saving {formatCurrency(metrics.monthlySavings)} monthly. Keep it up!
           </div>
         )}
         {metrics.monthlySavings <= 0 && (
@@ -254,7 +269,6 @@ export default function FNASummaryDashboard({ extractedData, onContinue }) {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ name, value }) => `${name}: S$${(value / 1000000).toFixed(1)}M`}
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="value"
@@ -263,7 +277,7 @@ export default function FNASummaryDashboard({ extractedData, onContinue }) {
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value) => `S$${(value / 1000000).toFixed(1)}M`} />
+                  <Tooltip formatter={(value) => formatCurrency(value)} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
