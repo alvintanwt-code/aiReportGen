@@ -1,9 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 
 export default function FNA4FactorPlanning({ extractedData, metrics }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const clientId = searchParams.get('clientId');
+
   const [activeFactors, setActiveFactors] = useState({
     noFailPosition: true,
     passiveIncome: true,
@@ -114,6 +119,34 @@ export default function FNA4FactorPlanning({ extractedData, metrics }) {
 
   return (
     <div className="gradient-northern-lights" style={{ padding: '40px 24px', minHeight: '100vh' }}>
+      {/* Back Button */}
+      <button
+        onClick={() => router.push(`/fna-summary?clientId=${clientId}`)}
+        style={{
+          padding: '10px 16px',
+          backgroundColor: 'rgba(255, 255, 255, 0.9)',
+          border: 'none',
+          borderRadius: '22px',
+          cursor: 'pointer',
+          fontSize: '14px',
+          fontWeight: '500',
+          color: '#1a1a1a',
+          marginBottom: '40px',
+          transition: 'all 0.2s ease',
+          backdropFilter: 'blur(10px)',
+        }}
+        onMouseEnter={(e) => {
+          e.target.style.backgroundColor = 'rgba(255, 255, 255, 1)';
+          e.target.style.transform = 'translateX(-4px)';
+        }}
+        onMouseLeave={(e) => {
+          e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
+          e.target.style.transform = 'translateX(0)';
+        }}
+      >
+        ← Back to Summary
+      </button>
+
       {/* Header */}
       <div style={{ marginBottom: '40px' }}>
         <h1 style={{ fontSize: '40px', fontWeight: '700', color: '#1a1a1a', marginBottom: '8px' }}>
