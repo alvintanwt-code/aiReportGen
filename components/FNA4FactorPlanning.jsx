@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ChevronDown, ChevronUp } from 'lucide-react';
 
 export default function FNA4FactorPlanning({ extractedData, metrics }) {
   const router = useRouter();
@@ -15,6 +14,20 @@ export default function FNA4FactorPlanning({ extractedData, metrics }) {
     investmentsGrowth: true,
     legacy: true,
   });
+
+  // Design tokens
+  const COLORS = {
+    navy: '#1e3a5f',
+    offWhite: '#f9f7f5',
+    taupe: '#8b8680',
+    forestGreen: '#2d5016',
+    gold: '#d4af37',
+    softRed: '#c85c5c',
+    warmGray: '#9a9a8f',
+    mutedGray: '#b5b5aa',
+    border: 'rgba(30, 58, 95, 0.08)',
+    borderStrong: 'rgba(30, 58, 95, 0.12)',
+  };
 
   const toggleFactor = (factor) => {
     setActiveFactors(prev => ({
@@ -103,11 +116,12 @@ export default function FNA4FactorPlanning({ extractedData, metrics }) {
   };
 
   const phaseRecs = recommendations[metrics.phase] || recommendations['Accumulation'];
+
   const FACTOR_COLORS = {
-    noFailPosition: '#dc3545',
-    passiveIncome: '#ffc107',
-    investmentsGrowth: '#28a745',
-    legacy: '#4a86e8'
+    noFailPosition: COLORS.softRed,
+    passiveIncome: COLORS.gold,
+    investmentsGrowth: COLORS.forestGreen,
+    legacy: COLORS.navy
   };
 
   const FACTOR_LABELS = {
@@ -118,29 +132,39 @@ export default function FNA4FactorPlanning({ extractedData, metrics }) {
   };
 
   return (
-    <div className="gradient-northern-lights" style={{ padding: '40px 24px', minHeight: '100vh' }}>
+    <div style={{ backgroundColor: COLORS.offWhite, padding: '40px 24px', minHeight: '100vh' }}>
+      <style>{`
+        @keyframes slideIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        body { background-color: ${COLORS.offWhite}; margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        * { box-sizing: border-box; }
+      `}</style>
+
       {/* Back Button */}
       <button
         onClick={() => router.push(`/fna-summary?clientId=${clientId}`)}
         style={{
           padding: '10px 16px',
-          backgroundColor: 'rgba(255, 255, 255, 0.9)',
-          border: 'none',
+          backgroundColor: 'white',
+          border: `1px solid ${COLORS.border}`,
           borderRadius: '22px',
           cursor: 'pointer',
           fontSize: '14px',
           fontWeight: '500',
-          color: '#1a1a1a',
+          color: COLORS.navy,
           marginBottom: '40px',
           transition: 'all 0.2s ease',
-          backdropFilter: 'blur(10px)',
         }}
         onMouseEnter={(e) => {
-          e.target.style.backgroundColor = 'rgba(255, 255, 255, 1)';
+          e.target.style.backgroundColor = COLORS.offWhite;
+          e.target.style.borderColor = COLORS.borderStrong;
           e.target.style.transform = 'translateX(-4px)';
         }}
         onMouseLeave={(e) => {
-          e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
+          e.target.style.backgroundColor = 'white';
+          e.target.style.borderColor = COLORS.border;
           e.target.style.transform = 'translateX(0)';
         }}
       >
@@ -149,27 +173,47 @@ export default function FNA4FactorPlanning({ extractedData, metrics }) {
 
       {/* Header */}
       <div style={{ marginBottom: '40px' }}>
-        <h1 style={{ fontSize: '40px', fontWeight: '700', color: '#1a1a1a', marginBottom: '8px' }}>
+        <h1 style={{
+          fontSize: '40px',
+          fontWeight: '700',
+          fontFamily: 'Georgia, serif',
+          color: COLORS.navy,
+          marginBottom: '16px',
+          margin: '0 0 16px 0'
+        }}>
           4 Factor Planning Framework
         </h1>
-        <p style={{ fontSize: '15px', color: '#666', lineHeight: '1.6', maxWidth: '800px' }}>
+        <p style={{
+          fontSize: '15px',
+          color: COLORS.warmGray,
+          lineHeight: '1.6',
+          maxWidth: '800px',
+          margin: '0'
+        }}>
           {phaseRecs.summary}
         </p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr', gap: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: '24px' }}>
         {/* Left Sidebar - Factor Toggles */}
         <div style={{
-          backgroundColor: 'rgba(255, 255, 255, 0.75)',
-          backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255, 255, 255, 0.6)',
-          borderRadius: '16px',
+          backgroundColor: 'white',
+          border: `1px solid ${COLORS.border}`,
+          borderRadius: '12px',
           padding: '24px',
           height: 'fit-content',
           position: 'sticky',
-          top: '24px'
+          top: '24px',
         }}>
-          <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#1a1a1a', marginBottom: '16px' }}>
+          <h3 style={{
+            fontSize: '14px',
+            fontWeight: '700',
+            color: COLORS.navy,
+            marginBottom: '16px',
+            margin: '0 0 16px 0',
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px'
+          }}>
             Planning Factors
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -179,22 +223,38 @@ export default function FNA4FactorPlanning({ extractedData, metrics }) {
                 onClick={() => toggleFactor(factorKey)}
                 style={{
                   padding: '12px 16px',
-                  backgroundColor: activeFactors[factorKey] ? FACTOR_COLORS[factorKey] : '#f0f0f0',
-                  color: activeFactors[factorKey] ? 'white' : '#666',
+                  backgroundColor: activeFactors[factorKey] ? FACTOR_COLORS[factorKey] : 'white',
+                  color: activeFactors[factorKey] ? 'white' : COLORS.navy,
                   border: `2px solid ${FACTOR_COLORS[factorKey]}`,
-                  borderRadius: '6px',
+                  borderRadius: '8px',
                   cursor: 'pointer',
                   fontSize: '13px',
                   fontWeight: '600',
                   transition: 'all 0.2s ease',
                   textAlign: 'left'
                 }}
+                onMouseEnter={(e) => {
+                  if (!activeFactors[factorKey]) {
+                    e.target.style.backgroundColor = COLORS.offWhite;
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!activeFactors[factorKey]) {
+                    e.target.style.backgroundColor = 'white';
+                  }
+                }}
               >
                 {FACTOR_LABELS[factorKey]}
               </button>
             ))}
           </div>
-          <p style={{ fontSize: '11px', color: '#999', marginTop: '16px', fontStyle: 'italic' }}>
+          <p style={{
+            fontSize: '11px',
+            color: COLORS.mutedGray,
+            marginTop: '16px',
+            fontStyle: 'italic',
+            margin: '16px 0 0 0'
+          }}>
             Click to toggle factor details
           </p>
         </div>
@@ -206,10 +266,9 @@ export default function FNA4FactorPlanning({ extractedData, metrics }) {
               <div
                 key={factorKey}
                 style={{
-                  backgroundColor: 'rgba(255, 255, 255, 0.75)',
-                  backdropFilter: 'blur(20px)',
+                  backgroundColor: 'white',
                   border: `2px solid ${FACTOR_COLORS[factorKey]}`,
-                  borderRadius: '16px',
+                  borderRadius: '12px',
                   padding: '24px',
                   marginBottom: '20px',
                   animation: 'slideIn 0.3s ease'
@@ -223,24 +282,47 @@ export default function FNA4FactorPlanning({ extractedData, metrics }) {
                     backgroundColor: FACTOR_COLORS[factorKey],
                     borderRadius: '50%'
                   }} />
-                  <h3 style={{ fontSize: '16px', fontWeight: '700', color: FACTOR_COLORS[factorKey], margin: 0 }}>
+                  <h3 style={{
+                    fontSize: '16px',
+                    fontWeight: '700',
+                    fontFamily: 'Georgia, serif',
+                    color: FACTOR_COLORS[factorKey],
+                    margin: '0'
+                  }}>
                     {phaseRecs.factors[factorKey].title}
                   </h3>
                 </div>
 
                 {/* Recommendation */}
-                <p style={{ fontSize: '13px', color: '#333', lineHeight: '1.6', marginBottom: '16px' }}>
+                <p style={{
+                  fontSize: '14px',
+                  color: COLORS.navy,
+                  lineHeight: '1.6',
+                  marginBottom: '16px',
+                  margin: '0 0 16px 0'
+                }}>
                   {phaseRecs.factors[factorKey].recommendation}
                 </p>
 
                 {/* Action Items */}
                 <div>
-                  <p style={{ fontSize: '12px', fontWeight: '600', color: '#666', marginBottom: '8px' }}>
+                  <p style={{
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    color: COLORS.navy,
+                    marginBottom: '8px',
+                    margin: '0 0 8px 0'
+                  }}>
                     Action Items:
                   </p>
                   <ul style={{ margin: '0', paddingLeft: '20px' }}>
                     {phaseRecs.factors[factorKey].actionItems.map((item, idx) => (
-                      <li key={idx} style={{ fontSize: '13px', color: '#666', marginBottom: '6px' }}>
+                      <li key={idx} style={{
+                        fontSize: '13px',
+                        color: COLORS.warmGray,
+                        marginBottom: '6px',
+                        lineHeight: '1.4'
+                      }}>
                         {item}
                       </li>
                     ))}
@@ -252,25 +334,25 @@ export default function FNA4FactorPlanning({ extractedData, metrics }) {
         </div>
       </div>
 
-      {/* Footer */}
-      <div style={{ marginTop: '40px', padding: '24px', backgroundColor: 'rgba(227, 242, 253, 0.8)', backdropFilter: 'blur(20px)', border: '1px solid rgba(21, 101, 192, 0.3)', borderRadius: '16px', textAlign: 'center' }}>
-        <p style={{ fontSize: '13px', color: '#1565c0', lineHeight: '1.6' }}>
+      {/* Footer Insight */}
+      <div style={{
+        marginTop: '40px',
+        padding: '20px 24px',
+        backgroundColor: 'white',
+        border: `1px solid ${COLORS.border}`,
+        borderLeft: `4px solid ${COLORS.gold}`,
+        borderRadius: '8px',
+        textAlign: 'left'
+      }}>
+        <p style={{
+          fontSize: '13px',
+          color: COLORS.navy,
+          lineHeight: '1.6',
+          margin: '0'
+        }}>
           💡 <strong>Tip:</strong> Review this plan periodically and adjust based on life changes, market conditions, and progress toward your goals.
         </p>
       </div>
-
-      <style>{`
-        @keyframes slideIn {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-      `}</style>
     </div>
   );
 }

@@ -11,6 +11,20 @@ export default function FNAUploadView({ clientId, clientName, onUploadComplete }
   const [extractionError, setExtractionError] = useState('');
   const router = useRouter();
 
+  // Design tokens
+  const COLORS = {
+    navy: '#1e3a5f',
+    offWhite: '#f9f7f5',
+    taupe: '#8b8680',
+    forestGreen: '#2d5016',
+    gold: '#d4af37',
+    softRed: '#c85c5c',
+    warmGray: '#9a9a8f',
+    mutedGray: '#b5b5aa',
+    border: 'rgba(30, 58, 95, 0.08)',
+    borderStrong: 'rgba(30, 58, 95, 0.12)',
+  };
+
   const handleFilesSelected = (files) => {
     setUploadedFiles([...uploadedFiles, ...Array.from(files)]);
     setExtractionError('');
@@ -53,7 +67,7 @@ export default function FNAUploadView({ clientId, clientName, onUploadComplete }
       // Show completion animation
       setIsComplete(true);
 
-      // Save to local storage temporarily
+      // Save to session storage temporarily
       sessionStorage.setItem(`fna_${clientId}`, JSON.stringify(extractedData));
 
       if (onUploadComplete) {
@@ -72,49 +86,26 @@ export default function FNAUploadView({ clientId, clientName, onUploadComplete }
   };
 
   return (
-    <div className="gradient-northern-lights" style={{ minHeight: '100vh', padding: '40px 24px', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ backgroundColor: COLORS.offWhite, minHeight: '100vh', padding: '40px 24px', display: 'flex', flexDirection: 'column' }}>
       <style>{`
         @keyframes slideDown {
-          from {
-            opacity: 0;
-            transform: translateY(-20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          from { opacity: 0; transform: translateY(-20px); }
+          to { opacity: 1; transform: translateY(0); }
         }
         @keyframes checkmark {
-          0% {
-            opacity: 0;
-            transform: scale(0);
-          }
-          50% {
-            opacity: 1;
-          }
-          100% {
-            opacity: 1;
-            transform: scale(1);
-          }
+          0% { opacity: 0; transform: scale(0); }
+          50% { opacity: 1; }
+          100% { opacity: 1; transform: scale(1); }
         }
         @keyframes pulse {
-          0%, 100% {
-            opacity: 1;
-          }
-          50% {
-            opacity: 0.6;
-          }
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.6; }
         }
-        .slide-in {
-          animation: slideDown 0.5s ease-out;
-        }
-        .checkmark-icon {
-          animation: checkmark 0.6s ease-out;
-          color: #16a34a;
-        }
-        .loading-pulse {
-          animation: pulse 1.5s ease-in-out infinite;
-        }
+        .slide-in { animation: slideDown 0.5s ease-out; }
+        .checkmark-icon { animation: checkmark 0.6s ease-out; color: ${COLORS.forestGreen}; }
+        .loading-pulse { animation: pulse 1.5s ease-in-out infinite; }
+        body { background-color: ${COLORS.offWhite}; margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        * { box-sizing: border-box; }
       `}</style>
 
       {/* Back Button */}
@@ -123,23 +114,24 @@ export default function FNAUploadView({ clientId, clientName, onUploadComplete }
         style={{
           alignSelf: 'flex-start',
           padding: '10px 16px',
-          backgroundColor: 'rgba(255, 255, 255, 0.9)',
-          border: 'none',
+          backgroundColor: 'white',
+          border: `1px solid ${COLORS.border}`,
           borderRadius: '22px',
           cursor: 'pointer',
           fontSize: '14px',
           fontWeight: '500',
-          color: '#1a1a1a',
+          color: COLORS.navy,
           marginBottom: '40px',
           transition: 'all 0.2s ease',
-          backdropFilter: 'blur(10px)',
         }}
         onMouseEnter={(e) => {
-          e.target.style.backgroundColor = 'rgba(255, 255, 255, 1)';
+          e.target.style.backgroundColor = COLORS.offWhite;
+          e.target.style.borderColor = COLORS.borderStrong;
           e.target.style.transform = 'translateX(-4px)';
         }}
         onMouseLeave={(e) => {
-          e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
+          e.target.style.backgroundColor = 'white';
+          e.target.style.borderColor = COLORS.border;
           e.target.style.transform = 'translateX(0)';
         }}
       >
@@ -150,26 +142,40 @@ export default function FNAUploadView({ clientId, clientName, onUploadComplete }
       {isExtracting && !isComplete ? (
         <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '80px', marginBottom: '24px', opacity: 0.8 }}>✨</div>
-            <h2 style={{ fontSize: '28px', fontWeight: '700', color: '#1a1a1a', marginBottom: '12px' }}>
+            <div style={{ fontSize: '80px', marginBottom: '24px', opacity: 0.8 }} className="loading-pulse">✨</div>
+            <h2 style={{
+              fontSize: '28px',
+              fontWeight: '700',
+              fontFamily: 'Georgia, serif',
+              color: COLORS.navy,
+              marginBottom: '12px',
+              margin: '0 0 12px 0'
+            }}>
               Analyzing Financial Data
             </h2>
-            <p style={{ fontSize: '16px', color: '#666', marginBottom: '8px', className: 'loading-pulse' }}>
+            <p style={{ fontSize: '16px', color: COLORS.warmGray, marginBottom: '8px', margin: '0 0 8px 0' }}>
               This will take a moment...
             </p>
-            <p style={{ fontSize: '13px', color: '#999' }}>
+            <p style={{ fontSize: '13px', color: COLORS.mutedGray, margin: '0' }}>
               We're processing your financial information with AI
             </p>
           </div>
         </div>
       ) : isComplete ? (
         <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-          <div style={{ textAlign: 'center', className: 'slide-in' }}>
-            <div style={{ fontSize: '80px', marginBottom: '24px', className: 'checkmark-icon' }}>✅</div>
-            <h2 style={{ fontSize: '28px', fontWeight: '700', color: '#16a34a', marginBottom: '8px' }}>
+          <div style={{ textAlign: 'center' }} className="slide-in">
+            <div style={{ fontSize: '80px', marginBottom: '24px' }} className="checkmark-icon">✅</div>
+            <h2 style={{
+              fontSize: '28px',
+              fontWeight: '700',
+              fontFamily: 'Georgia, serif',
+              color: COLORS.forestGreen,
+              marginBottom: '8px',
+              margin: '0 0 8px 0'
+            }}>
               Analysis Complete!
             </h2>
-            <p style={{ fontSize: '16px', color: '#666' }}>
+            <p style={{ fontSize: '16px', color: COLORS.warmGray, margin: '0' }}>
               Preparing your financial needs analysis...
             </p>
           </div>
@@ -177,14 +183,21 @@ export default function FNAUploadView({ clientId, clientName, onUploadComplete }
       ) : (
         <div style={{ flex: 1 }}>
           {/* Header */}
-          <div style={{ marginBottom: '40px', className: 'slide-in' }}>
-            <h1 style={{ fontSize: '40px', fontWeight: '700', color: '#1a1a1a', marginBottom: '8px' }}>
+          <div style={{ marginBottom: '40px' }} className="slide-in">
+            <h1 style={{
+              fontSize: '40px',
+              fontWeight: '700',
+              fontFamily: 'Georgia, serif',
+              color: COLORS.navy,
+              marginBottom: '8px',
+              margin: '0 0 8px 0'
+            }}>
               Financial Needs Analysis
             </h1>
-            <p style={{ fontSize: '16px', color: '#666', marginBottom: '12px' }}>
-              Client: <strong style={{ color: '#1a1a1a' }}>{clientName}</strong>
+            <p style={{ fontSize: '16px', color: COLORS.warmGray, marginBottom: '12px', margin: '0 0 12px 0' }}>
+              Client: <strong style={{ color: COLORS.navy }}>{clientName}</strong>
             </p>
-            <p style={{ fontSize: '14px', color: '#666', lineHeight: '1.6', maxWidth: '600px' }}>
+            <p style={{ fontSize: '14px', color: COLORS.warmGray, lineHeight: '1.6', maxWidth: '600px', margin: '0' }}>
               Upload up to 4 screenshots of the client's financial information including personal details, policies, assets, liabilities, and cashflow.
             </p>
           </div>
@@ -197,14 +210,19 @@ export default function FNAUploadView({ clientId, clientName, onUploadComplete }
           {/* Uploaded Files List */}
           {uploadedFiles.length > 0 && (
             <div style={{
-              backgroundColor: 'rgba(255, 255, 255, 0.8)',
-              backdropFilter: 'blur(20px)',
-              border: '1px solid rgba(255, 255, 255, 0.6)',
-              borderRadius: '16px',
+              backgroundColor: 'white',
+              border: `1px solid ${COLORS.border}`,
+              borderRadius: '12px',
               padding: '24px',
               marginBottom: '40px'
             }}>
-              <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#1a1a1a', marginBottom: '16px' }}>
+              <h3 style={{
+                fontSize: '14px',
+                fontWeight: '600',
+                color: COLORS.navy,
+                marginBottom: '16px',
+                margin: '0 0 16px 0'
+              }}>
                 Uploaded Files ({uploadedFiles.length}/4)
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -216,10 +234,11 @@ export default function FNAUploadView({ clientId, clientName, onUploadComplete }
                       justifyContent: 'space-between',
                       alignItems: 'center',
                       padding: '12px 16px',
-                      backgroundColor: 'rgba(255, 255, 255, 0.6)',
+                      backgroundColor: COLORS.offWhite,
+                      border: `1px solid ${COLORS.border}`,
                       borderRadius: '8px',
                       fontSize: '13px',
-                      color: '#333'
+                      color: COLORS.navy
                     }}
                   >
                     <span>
@@ -229,7 +248,7 @@ export default function FNAUploadView({ clientId, clientName, onUploadComplete }
                       onClick={() => removeFile(index)}
                       style={{
                         padding: '6px 12px',
-                        backgroundColor: '#dc3545',
+                        backgroundColor: COLORS.softRed,
                         color: 'white',
                         border: 'none',
                         borderRadius: '6px',
@@ -238,8 +257,8 @@ export default function FNAUploadView({ clientId, clientName, onUploadComplete }
                         fontWeight: '600',
                         transition: 'background-color 0.2s'
                       }}
-                      onMouseEnter={(e) => e.target.style.backgroundColor = '#c82333'}
-                      onMouseLeave={(e) => e.target.style.backgroundColor = '#dc3545'}
+                      onMouseEnter={(e) => e.target.style.backgroundColor = '#a84949'}
+                      onMouseLeave={(e) => e.target.style.backgroundColor = COLORS.softRed}
                     >
                       Remove
                     </button>
@@ -252,14 +271,13 @@ export default function FNAUploadView({ clientId, clientName, onUploadComplete }
           {/* Error Message */}
           {extractionError && (
             <div style={{
-              backgroundColor: 'rgba(248, 215, 218, 0.9)',
-              border: '1px solid #f5c6cb',
-              color: '#721c24',
+              backgroundColor: 'rgba(200, 92, 92, 0.08)',
+              border: `1px solid ${COLORS.softRed}`,
+              color: COLORS.softRed,
               padding: '16px',
               borderRadius: '8px',
               marginBottom: '24px',
-              fontSize: '13px',
-              backdropFilter: 'blur(10px)'
+              fontSize: '13px'
             }}>
               ⚠️ {extractionError}
             </div>
@@ -271,29 +289,26 @@ export default function FNAUploadView({ clientId, clientName, onUploadComplete }
             disabled={uploadedFiles.length === 0}
             style={{
               padding: '14px 48px',
-              backgroundColor: uploadedFiles.length === 0 ? 'rgba(200, 200, 200, 0.5)' : '#FF8F44',
+              backgroundColor: uploadedFiles.length === 0 ? COLORS.mutedGray : COLORS.navy,
               color: 'white',
               border: 'none',
-              borderRadius: '22px',
+              borderRadius: '8px',
               cursor: uploadedFiles.length === 0 ? 'not-allowed' : 'pointer',
               fontSize: '15px',
               fontWeight: '600',
               transition: 'all 0.2s ease',
-              backdropFilter: 'blur(10px)',
-              boxShadow: uploadedFiles.length === 0 ? 'none' : '0 8px 32px rgba(255, 143, 68, 0.3)',
+              opacity: uploadedFiles.length === 0 ? 0.5 : 1,
             }}
             onMouseEnter={(e) => {
               if (uploadedFiles.length > 0) {
-                e.target.style.backgroundColor = '#FF7A1F';
+                e.target.style.backgroundColor = '#162d47';
                 e.target.style.transform = 'translateY(-2px)';
-                e.target.style.boxShadow = '0 12px 40px rgba(255, 143, 68, 0.4)';
               }
             }}
             onMouseLeave={(e) => {
               if (uploadedFiles.length > 0) {
-                e.target.style.backgroundColor = '#FF8F44';
+                e.target.style.backgroundColor = COLORS.navy;
                 e.target.style.transform = 'translateY(0)';
-                e.target.style.boxShadow = '0 8px 32px rgba(255, 143, 68, 0.3)';
               }
             }}
           >
