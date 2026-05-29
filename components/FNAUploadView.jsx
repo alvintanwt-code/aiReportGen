@@ -42,11 +42,13 @@ export default function FNAUploadView({ clientId, clientName, onUploadComplete }
         body: formData,
       });
 
+      const responseData = await response.json();
+
       if (!response.ok) {
-        throw new Error(`Extraction failed: ${response.statusText}`);
+        throw new Error(responseData.error || `Extraction failed: ${response.statusText}`);
       }
 
-      const extractedData = await response.json();
+      const extractedData = responseData;
 
       // Show completion animation
       setIsComplete(true);

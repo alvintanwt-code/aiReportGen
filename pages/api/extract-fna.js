@@ -2,7 +2,9 @@ import Anthropic from '@anthropic-ai/sdk';
 import formidable from 'formidable';
 import * as fs from 'fs/promises';
 
-const client = new Anthropic();
+const client = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+});
 
 export const config = {
   api: {
@@ -192,6 +194,15 @@ export default async function handler(req, res) {
     return res.status(200).json(extractedData);
   } catch (error) {
     console.error('Extraction error:', error);
-    return res.status(500).json({ error: error.message });
+    console.error('Error details:', {
+      message: error.message,
+      status: error.status,
+      type: error.type,
+      stack: error.stack
+    });
+    return res.status(500).json({
+      error: error.message || 'Unknown extraction error',
+      details: error.type || 'Unknown error type'
+    });
   }
 }
