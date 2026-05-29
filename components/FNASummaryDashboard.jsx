@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 export default function FNASummaryDashboard({ extractedData, onContinue }) {
+  const router = useRouter();
   const [expandedSection, setExpandedSection] = useState(null);
 
   // Design tokens from system.md
@@ -171,7 +173,7 @@ export default function FNASummaryDashboard({ extractedData, onContinue }) {
   );
 
   return (
-    <div style={{ backgroundColor: COLORS.offWhite, padding: '40px 24px', minHeight: '100vh' }}>
+    <div style={{ backgroundColor: COLORS.offWhite, minHeight: '100vh' }}>
       <style>{`
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(8px); }
@@ -181,8 +183,39 @@ export default function FNASummaryDashboard({ extractedData, onContinue }) {
         * { box-sizing: border-box; }
       `}</style>
 
-      {/* Header */}
-      <div style={{ marginBottom: '40px', animation: 'fadeIn 0.5s ease-out' }}>
+      {/* Main Container with max-width */}
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px 24px' }}>
+        {/* Back Button */}
+        <button
+          onClick={() => router.push('/')}
+          style={{
+            padding: '10px 16px',
+            backgroundColor: 'white',
+            border: `1px solid ${COLORS.border}`,
+            borderRadius: '22px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: '500',
+            color: COLORS.navy,
+            marginBottom: '40px',
+            transition: 'all 0.2s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.target.style.backgroundColor = COLORS.offWhite;
+            e.target.style.borderColor = COLORS.borderStrong;
+            e.target.style.transform = 'translateX(-4px)';
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.backgroundColor = 'white';
+            e.target.style.borderColor = COLORS.border;
+            e.target.style.transform = 'translateX(0)';
+          }}
+        >
+          ← Back to Dashboard
+        </button>
+
+        {/* Header */}
+        <div style={{ marginBottom: '40px', animation: 'fadeIn 0.5s ease-out' }}>
         <h1 style={{
           fontSize: '40px',
           fontWeight: '700',
@@ -372,32 +405,33 @@ export default function FNASummaryDashboard({ extractedData, onContinue }) {
         </SectionCard>
       )}
 
-      {/* CTA */}
-      <div style={{ display: 'flex', gap: '12px', marginTop: '40px' }}>
-        <button
-          onClick={onContinue}
-          style={{
-            padding: '14px 32px',
-            backgroundColor: COLORS.navy,
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            fontSize: '14px',
-            fontWeight: '600',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-          }}
-          onMouseEnter={(e) => {
-            e.target.style.backgroundColor = '#162d47';
-            e.target.style.transform = 'translateY(-2px)';
-          }}
-          onMouseLeave={(e) => {
-            e.target.style.backgroundColor = COLORS.navy;
-            e.target.style.transform = 'translateY(0)';
-          }}
-        >
-          View 4 Factor Planning Recommendations →
-        </button>
+        {/* CTA */}
+        <div style={{ display: 'flex', gap: '12px', marginTop: '40px' }}>
+          <button
+            onClick={onContinue}
+            style={{
+              padding: '14px 32px',
+              backgroundColor: COLORS.navy,
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.backgroundColor = '#162d47';
+              e.target.style.transform = 'translateY(-2px)';
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.backgroundColor = COLORS.navy;
+              e.target.style.transform = 'translateY(0)';
+            }}
+          >
+            View 4 Factor Planning Recommendations →
+          </button>
+        </div>
       </div>
     </div>
   );
