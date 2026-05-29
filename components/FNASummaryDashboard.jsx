@@ -2,50 +2,56 @@
 
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 
 export default function FNASummaryDashboard({ extractedData, onContinue }) {
   const router = useRouter();
 
-  // BRUTALIST COLOR PALETTE
-  const COLORS = {
-    grey: '#e8e8e8',        // Background
-    white: '#ffffff',       // Cards
-    black: '#000000',       // Text
-    darkGrey: '#333333',    // Dark text
-    navy: '#1e3a5f',        // SINGLE accent
-    border: '#cccccc',      // Hard borders
+  // Design tokens from project instructions
+  const TOKENS = {
+    bg: '#f6f8fa',
+    surface: '#ffffff',
+    surface2: '#f9fafb',
+    border: '#e5e7eb',
+    borderSoft: '#f0f2f4',
+    inkPrimary: '#0f172a',
+    inkSecondary: '#475569',
+    inkTertiary: '#94a3b8',
+    inkMuted: '#cbd5e1',
+    brand: '#635bff',
+    brandLight: '#ede9fe',
+    positive: '#10b981',
+    warning: '#f59e0b',
+    negative: '#ef4444',
+    shadowSm: '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)',
+    shadowMd: '0 4px 12px rgba(0,0,0,0.06), 0 2px 4px rgba(0,0,0,0.04)',
   };
 
-  // Dynamic Phase Scoring Matrix - BRUTALIST
+  // Domain concepts: wealth trajectory, life phases, net worth, passive income thresholds
   const PHASE_MATRIX = [
     {
       min: 0,
       max: 5000,
-      phase: 'Accumulation',
-      label: 'ACCUMULATION',
-      description: 'Building foundation. Focus on consistent savings and growth.'
+      label: 'Accumulation',
+      description: 'Building foundation. Focus on savings and growth.'
     },
     {
       min: 5000,
       max: 15000,
-      phase: 'Transition Ready',
-      label: 'TRANSITION READY',
-      description: 'Good foundation established. Build passive income streams.'
+      label: 'Transition Ready',
+      description: 'Strong foundation. Passive income potential emerging.'
     },
     {
       min: 15000,
       max: Infinity,
-      phase: 'Work Optional Ready',
-      label: 'WORK OPTIONAL READY',
-      description: 'Strong wealth position. Focus on legacy and security.'
+      label: 'Work Optional',
+      description: 'Wealth position strong. Focus on legacy and preservation.'
     }
   ];
 
   // Calculate metrics
   const metrics = useMemo(() => {
     const age = extractedData.personalInfo?.age || 0;
-
     const liquidAssets = (extractedData.assets?.cashSavings || 0) +
       (extractedData.assets?.cpfOA || 0) +
       (extractedData.assets?.cpfSA || 0) +
@@ -61,10 +67,11 @@ export default function FNASummaryDashboard({ extractedData, onContinue }) {
     const scorePerAge = age > 0 ? liquidNetWorth / age : 0;
 
     const phaseData = PHASE_MATRIX.find(p => scorePerAge >= p.min && scorePerAge < p.max) || PHASE_MATRIX[0];
+    const phaseIndex = PHASE_MATRIX.indexOf(phaseData);
     const phaseStart = phaseData.min;
     const phaseEnd = phaseData.max === Infinity ? 30000 : phaseData.max;
-    const positionInPhase = ((scorePerAge - phaseStart) / (phaseEnd - phaseStart)) * 100;
-    const overallPosition = PHASE_MATRIX.indexOf(phaseData) * 33.33 + (positionInPhase * 0.3333);
+    const positionInPhase = Math.min(100, ((scorePerAge - phaseStart) / (phaseEnd - phaseStart)) * 100);
+    const overallPosition = phaseIndex * 33.33 + (positionInPhase * 0.3333);
 
     const debtRatio = totalAssets > 0 ? (totalLiabilities / totalAssets) * 100 : 0;
     const monthlyIncome = extractedData.cashflow?.income || 0;
@@ -74,7 +81,7 @@ export default function FNASummaryDashboard({ extractedData, onContinue }) {
 
     return {
       age, liquidAssets, totalAssets, totalLiabilities, netWorth, liquidNetWorth, scorePerAge,
-      phase: phaseData.phase, phaseLabel: phaseData.label, phaseDescription: phaseData.description,
+      phase: phaseData.label, phaseDescription: phaseData.description,
       overallPosition, debtRatio, monthlyIncome, monthlyExpenses, monthlySavings, savingsRate
     };
   }, [extractedData]);
@@ -85,369 +92,354 @@ export default function FNASummaryDashboard({ extractedData, onContinue }) {
     { name: 'Cash', value: extractedData.assets?.cashSavings || 0 },
     { name: 'CPF', value: (extractedData.assets?.cpfOA || 0) + (extractedData.assets?.cpfSA || 0) + (extractedData.assets?.cpfMA || 0) },
     { name: 'Equities', value: extractedData.assets?.equities || 0 },
-    { name: 'Mutual Funds', value: extractedData.assets?.mutualFunds || 0 },
+    { name: 'Funds', value: extractedData.assets?.mutualFunds || 0 },
     { name: 'Insurance', value: extractedData.assets?.insuranceCashValue || 0 },
     { name: 'Property', value: extractedData.assets?.residentialPropertyValue || 0 }
   ].filter(item => item.value > 0);
 
-  const assetColors = ['#000000', '#1e3a5f', '#333333', '#666666', '#999999', '#cccccc'];
+  const assetColors = [TOKENS.brand, TOKENS.positive, TOKENS.warning, TOKENS.inkTertiary, TOKENS.inkMuted, TOKENS.borderSoft];
 
   return (
-    <div style={{ backgroundColor: COLORS.grey, minHeight: '100vh', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+    <div style={{ backgroundColor: TOKENS.bg, minHeight: '100vh', fontFamily: 'Inter, -apple-system, sans-serif' }}>
       <style>{`
-        body { background-color: ${COLORS.grey}; margin: 0; }
+        @import url('https://rsms.me/inter/inter.css');
+        body { background-color: ${TOKENS.bg}; margin: 0; }
         * { box-sizing: border-box; }
-        h1, h2, h3 { margin: 0; font-weight: 900; letter-spacing: -0.02em; }
-        p { margin: 0; }
       `}</style>
 
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '60px 40px' }}>
-        {/* Back Button - BRUTALIST */}
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '48px 32px' }}>
+        {/* Navigation context */}
         <button
           onClick={() => router.push('/')}
           style={{
-            padding: '12px 24px',
-            backgroundColor: COLORS.white,
-            border: `2px solid ${COLORS.black}`,
-            borderRadius: '0px',
+            padding: '10px 16px',
+            backgroundColor: TOKENS.surface,
+            border: `1px solid ${TOKENS.border}`,
+            borderRadius: '8px',
             cursor: 'pointer',
             fontSize: '13px',
-            fontWeight: '700',
-            color: COLORS.black,
-            marginBottom: '60px',
-            transition: 'all 0.1s',
-            textTransform: 'uppercase',
-            letterSpacing: '0.1em'
+            fontWeight: '500',
+            color: TOKENS.inkSecondary,
+            marginBottom: '48px',
+            transition: 'all 0.15s',
           }}
           onMouseEnter={(e) => {
-            e.target.style.backgroundColor = COLORS.black;
-            e.target.style.color = COLORS.white;
+            e.target.style.backgroundColor = TOKENS.surface2;
+            e.target.style.borderColor = TOKENS.borderSoft;
           }}
           onMouseLeave={(e) => {
-            e.target.style.backgroundColor = COLORS.white;
-            e.target.style.color = COLORS.black;
+            e.target.style.backgroundColor = TOKENS.surface;
+            e.target.style.borderColor = TOKENS.border;
           }}
         >
-          ← Back
+          ← Back to Dashboard
         </button>
 
-        {/* Header - BRUTALIST */}
-        <div style={{ marginBottom: '80px', borderBottom: `3px solid ${COLORS.black}`, paddingBottom: '40px' }}>
-          <h1 style={{ fontSize: '56px', color: COLORS.black, marginBottom: '8px' }}>
-            FINANCIAL HEALTH SUMMARY
+        {/* Page header with context */}
+        <div style={{ marginBottom: '48px' }}>
+          <h1 style={{
+            fontSize: '26px',
+            fontWeight: '700',
+            letterSpacing: '-0.02em',
+            color: TOKENS.inkPrimary,
+            marginBottom: '8px'
+          }}>
+            Financial Health Summary
           </h1>
-          <p style={{ fontSize: '16px', color: COLORS.darkGrey, fontFamily: 'monospace' }}>
-            {extractedData.personalInfo?.name || 'CLIENT'} • AGE {metrics.age}
+          <p style={{
+            fontSize: '13px',
+            fontWeight: '500',
+            color: TOKENS.inkSecondary,
+            margin: '0'
+          }}>
+            {extractedData.personalInfo?.name || 'Client'} • Age {metrics.age} • Generated today
           </p>
         </div>
 
-        {/* HERO: Work Optional Index Ring - BRUTALIST */}
+        {/* HERO: Work Optional Index - Precision arc showing wealth trajectory */}
         <div style={{
-          backgroundColor: COLORS.white,
-          border: `3px solid ${COLORS.black}`,
-          borderRadius: '0px',
-          padding: '60px 40px',
-          marginBottom: '60px',
-          textAlign: 'center'
+          backgroundColor: TOKENS.surface,
+          border: `1px solid ${TOKENS.border}`,
+          borderRadius: '12px',
+          padding: '40px',
+          marginBottom: '32px',
+          boxShadow: TOKENS.shadowSm
         }}>
-          <h2 style={{ fontSize: '18px', color: COLORS.black, marginBottom: '50px', letterSpacing: '0.15em', textTransform: 'uppercase' }}>
-            Work Optional Index
-          </h2>
-
-          {/* Ring - STRIPPED BRUTALIST */}
-          <div style={{ position: 'relative', width: '300px', height: '300px', margin: '0 auto 50px' }}>
-            <svg viewBox="0 0 280 280" style={{ width: '100%', height: '100%' }}>
-              {/* Hard geometric ring segments */}
-              {PHASE_MATRIX.map((phase, idx) => {
-                const startAngle = idx * 120;
-                const endAngle = (idx + 1) * 120;
-                const startRad = (startAngle - 90) * (Math.PI / 180);
-                const endRad = (endAngle - 90) * (Math.PI / 180);
-                const innerR = 85;
-                const outerR = 120;
-
-                const x1Inner = 140 + innerR * Math.cos(startRad);
-                const y1Inner = 140 + innerR * Math.sin(startRad);
-                const x2Inner = 140 + innerR * Math.cos(endRad);
-                const y2Inner = 140 + innerR * Math.sin(endRad);
-
-                const x1Outer = 140 + outerR * Math.cos(startRad);
-                const y1Outer = 140 + outerR * Math.sin(startRad);
-                const x2Outer = 140 + outerR * Math.cos(endRad);
-                const y2Outer = 140 + outerR * Math.sin(endRad);
-
-                const fillColor = idx === 1 ? COLORS.navy : COLORS.black;
-
-                return (
-                  <path
-                    key={`segment-${idx}`}
-                    d={`M ${x1Inner} ${y1Inner} A ${innerR} ${innerR} 0 0 1 ${x2Inner} ${y2Inner} L ${x2Outer} ${y2Outer} A ${outerR} ${outerR} 0 0 0 ${x1Outer} ${y1Outer} Z`}
-                    fill={idx === 1 ? COLORS.navy : 'none'}
-                    stroke={COLORS.black}
-                    strokeWidth="2"
-                    opacity={idx === 1 ? 1 : 0.3}
-                  />
-                );
-              })}
-
-              {/* Position indicator - HARD and BOLD */}
-              {(() => {
-                const angle = (metrics.overallPosition / 100) * 360 - 90;
-                const rad = angle * (Math.PI / 180);
-                const r = 102;
-                const x = 140 + r * Math.cos(rad);
-                const y = 140 + r * Math.sin(rad);
-                return (
-                  <>
-                    <circle cx={x} cy={y} r="12" fill={COLORS.navy} />
-                    <circle cx={x} cy={y} r="12" fill="none" stroke={COLORS.black} strokeWidth="2" />
-                  </>
-                );
-              })()}
-
-              {/* Center circle */}
-              <circle cx="140" cy="140" r="60" fill={COLORS.white} stroke={COLORS.black} strokeWidth="2" />
-
-              {/* Phase labels */}
-              {PHASE_MATRIX.map((phase, idx) => {
-                const angle = (idx * 120 + 60) * (Math.PI / 180) - Math.PI / 2;
-                const r = 158;
-                const x = 140 + r * Math.cos(angle);
-                const y = 140 + r * Math.sin(angle);
-                return (
-                  <text
-                    key={`label-${idx}`}
-                    x={x}
-                    y={y}
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    fontSize="9"
-                    fontWeight="900"
-                    fill={COLORS.black}
-                    textTransform="uppercase"
-                    letterSpacing="0.05em"
-                  >
-                    {phase.label.split(' ')[0]}
-                  </text>
-                );
-              })}
-            </svg>
-
-            {/* Center display */}
-            <div style={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              textAlign: 'center'
-            }}>
-              <p style={{ fontSize: '11px', color: COLORS.darkGrey, margin: '0 0 4px 0', fontFamily: 'monospace', textTransform: 'uppercase' }}>Index</p>
-              <p style={{ fontSize: '32px', fontWeight: '900', color: COLORS.navy, margin: '0', fontFamily: 'monospace' }}>
-                ${(metrics.scorePerAge || 0).toLocaleString('en-SG', { maximumFractionDigits: 0 })}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '48px' }}>
+            {/* Left: Arc visualization */}
+            <div style={{ flex: 1, minWidth: '260px' }}>
+              <p style={{
+                fontSize: '11px',
+                fontWeight: '600',
+                textTransform: 'uppercase',
+                color: TOKENS.inkTertiary,
+                letterSpacing: '0.07em',
+                marginBottom: '24px',
+                margin: '0 0 24px 0'
+              }}>
+                Work Optional Index
               </p>
-              <p style={{ fontSize: '9px', color: COLORS.darkGrey, margin: '4px 0 0 0', fontFamily: 'monospace' }}>per year</p>
-            </div>
-          </div>
 
-          {/* Phase Info */}
-          <div>
-            <h3 style={{ fontSize: '24px', color: COLORS.navy, marginBottom: '16px', letterSpacing: '-0.02em' }}>
-              {metrics.phaseLabel}
-            </h3>
-            <p style={{ fontSize: '13px', color: COLORS.darkGrey, lineHeight: '1.8', maxWidth: '600px', margin: '0 auto' }}>
-              {metrics.phaseDescription}
-            </p>
+              <svg viewBox="0 0 220 140" style={{ width: '100%', height: 'auto' }}>
+                {/* Background arc */}
+                <path d="M 30 130 A 100 100 0 0 1 190 130" fill="none" stroke={TOKENS.borderSoft} strokeWidth="12" strokeLinecap="round" />
+
+                {/* Filled arc to current position */}
+                <path
+                  d="M 30 130 A 100 100 0 0 1 190 130"
+                  fill="none"
+                  stroke={TOKENS.brand}
+                  strokeWidth="12"
+                  strokeLinecap="round"
+                  strokeDasharray={`${(metrics.overallPosition / 100) * 502.4} 502.4`}
+                />
+
+                {/* Phase labels */}
+                <text x="30" y="155" fontSize="11" fontWeight="500" fill={TOKENS.inkTertiary} textAnchor="middle">Accumulation</text>
+                <text x="110" y="155" fontSize="11" fontWeight="500" fill={TOKENS.inkTertiary} textAnchor="middle">Transition</text>
+                <text x="190" y="155" fontSize="11" fontWeight="500" fill={TOKENS.inkTertiary} textAnchor="middle">Work Optional</text>
+              </svg>
+            </div>
+
+            {/* Right: Current position and context */}
+            <div style={{ flex: 1 }}>
+              <div style={{ marginBottom: '32px' }}>
+                <p style={{
+                  fontSize: '11px',
+                  fontWeight: '600',
+                  textTransform: 'uppercase',
+                  color: TOKENS.inkTertiary,
+                  letterSpacing: '0.07em',
+                  marginBottom: '8px',
+                  margin: '0 0 8px 0'
+                }}>
+                  Your Index
+                </p>
+                <p style={{
+                  fontSize: '28px',
+                  fontWeight: '700',
+                  color: TOKENS.brand,
+                  letterSpacing: '-0.02em',
+                  margin: '0',
+                  fontVariantNumeric: 'tabular-nums'
+                }}>
+                  ${(metrics.scorePerAge || 0).toLocaleString('en-SG', { maximumFractionDigits: 0 })}
+                </p>
+                <p style={{
+                  fontSize: '11px',
+                  color: TOKENS.inkTertiary,
+                  margin: '4px 0 0 0'
+                }}>
+                  per year of age
+                </p>
+              </div>
+
+              <div style={{ paddingTop: '24px', borderTop: `1px solid ${TOKENS.border}` }}>
+                <h3 style={{
+                  fontSize: '15px',
+                  fontWeight: '600',
+                  color: TOKENS.brand,
+                  marginBottom: '8px',
+                  margin: '0 0 8px 0'
+                }}>
+                  {metrics.phase}
+                </h3>
+                <p style={{
+                  fontSize: '13px',
+                  color: TOKENS.inkSecondary,
+                  lineHeight: '1.65',
+                  margin: '0'
+                }}>
+                  {metrics.phaseDescription}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Key Metrics - BRUTALIST GRID */}
+        {/* Key metrics with context */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(4, 1fr)',
-          gap: '20px',
-          marginBottom: '60px'
+          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+          gap: '16px',
+          marginBottom: '32px'
         }}>
           {[
-            { label: 'Net Worth', value: formatCurrency(metrics.netWorth) },
-            { label: 'Liquid Assets', value: formatCurrency(metrics.liquidAssets) },
-            { label: 'Total Assets', value: formatCurrency(metrics.totalAssets) },
-            { label: 'Liabilities', value: formatCurrency(metrics.totalLiabilities) }
-          ].map((metric, idx) => (
+            { label: 'Net Worth', value: formatCurrency(metrics.netWorth), color: TOKENS.brand },
+            { label: 'Liquid Assets', value: formatCurrency(metrics.liquidAssets), color: TOKENS.positive },
+            { label: 'Monthly Savings', value: formatCurrency(metrics.monthlySavings), color: metrics.monthlySavings > 0 ? TOKENS.positive : TOKENS.negative },
+            { label: 'Debt Ratio', value: `${metrics.debtRatio.toFixed(1)}%`, color: metrics.debtRatio < 30 ? TOKENS.positive : metrics.debtRatio < 50 ? TOKENS.warning : TOKENS.negative }
+          ].map((stat, idx) => (
             <div key={idx} style={{
-              backgroundColor: COLORS.white,
-              border: `2px solid ${COLORS.black}`,
-              borderRadius: '0px',
-              padding: '24px',
-              textAlign: 'center'
+              backgroundColor: TOKENS.surface,
+              border: `1px solid ${TOKENS.border}`,
+              borderRadius: '12px',
+              padding: '20px',
+              boxShadow: TOKENS.shadowSm
             }}>
-              <p style={{ fontSize: '11px', color: COLORS.darkGrey, marginBottom: '12px', fontFamily: 'monospace', textTransform: 'uppercase' }}>
-                {metric.label}
+              <p style={{
+                fontSize: '11px',
+                fontWeight: '600',
+                textTransform: 'uppercase',
+                color: TOKENS.inkTertiary,
+                letterSpacing: '0.07em',
+                marginBottom: '12px',
+                margin: '0 0 12px 0'
+              }}>
+                {stat.label}
               </p>
-              <p style={{ fontSize: '18px', fontWeight: '900', color: COLORS.navy, margin: '0', fontFamily: 'monospace' }}>
-                {metric.value}
+              <p style={{
+                fontSize: '19px',
+                fontWeight: '700',
+                color: stat.color,
+                letterSpacing: '-0.02em',
+                margin: '0',
+                fontVariantNumeric: 'tabular-nums'
+              }}>
+                {stat.value}
               </p>
             </div>
           ))}
         </div>
 
-        {/* Debt Ratio */}
+        {/* Cashflow and assets in 2-column grid */}
         <div style={{
-          backgroundColor: COLORS.white,
-          border: `2px solid ${COLORS.black}`,
-          borderRadius: '0px',
-          padding: '40px',
-          marginBottom: '60px',
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
-          gap: '40px',
-          alignItems: 'center'
+          gap: '32px',
+          marginBottom: '32px'
         }}>
-          <div>
-            <h3 style={{ fontSize: '16px', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-              Debt Ratio
-            </h3>
-            <p style={{ fontSize: '14px', color: COLORS.darkGrey, marginBottom: '12px' }}>Total Liabilities vs Assets</p>
-            <p style={{ fontSize: '48px', fontWeight: '900', color: COLORS.navy, margin: '0', fontFamily: 'monospace' }}>
-              {metrics.debtRatio.toFixed(0)}%
+          {/* Cashflow */}
+          <div style={{
+            backgroundColor: TOKENS.surface,
+            border: `1px solid ${TOKENS.border}`,
+            borderRadius: '12px',
+            padding: '24px',
+            boxShadow: TOKENS.shadowSm
+          }}>
+            <p style={{
+              fontSize: '11px',
+              fontWeight: '600',
+              textTransform: 'uppercase',
+              color: TOKENS.inkTertiary,
+              letterSpacing: '0.07em',
+              marginBottom: '24px',
+              margin: '0 0 24px 0'
+            }}>
+              Monthly Cashflow
             </p>
-            <p style={{ fontSize: '12px', color: COLORS.darkGrey, marginTop: '12px' }}>
-              {metrics.debtRatio < 20 ? 'HEALTHY' : metrics.debtRatio < 40 ? 'MODERATE' : 'HIGH'}
-            </p>
-          </div>
-          <div style={{
-            width: '100%',
-            height: '200px',
-            backgroundColor: COLORS.grey,
-            border: `2px solid ${COLORS.border}`,
-            borderRadius: '0px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            position: 'relative'
-          }}>
-            <svg style={{ width: '100%', height: '100%' }} viewBox="0 0 200 200">
-              <circle cx="100" cy="100" r="80" fill="none" stroke={COLORS.border} strokeWidth="2" />
-              <circle
-                cx="100"
-                cy="100"
-                r="80"
-                fill="none"
-                stroke={COLORS.navy}
-                strokeWidth="3"
-                strokeDasharray={`${(metrics.debtRatio / 100) * 502.4} 502.4`}
-                strokeLinecap="butt"
-                transform="rotate(-90 100 100)"
-              />
-              <text x="100" y="105" textAnchor="middle" fontSize="24" fontWeight="900" fill={COLORS.navy} fontFamily="monospace">
-                {metrics.debtRatio.toFixed(0)}%
-              </text>
-            </svg>
-          </div>
-        </div>
-
-        {/* Monthly Cashflow */}
-        <div style={{
-          backgroundColor: COLORS.white,
-          border: `2px solid ${COLORS.black}`,
-          borderRadius: '0px',
-          padding: '40px',
-          marginBottom: '60px'
-        }}>
-          <h3 style={{ fontSize: '16px', marginBottom: '32px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-            Monthly Cashflow
-          </h3>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(4, 1fr)',
-            gap: '20px'
-          }}>
-            {[
-              { label: 'Income', value: formatCurrency(metrics.monthlyIncome) },
-              { label: 'Expenses', value: formatCurrency(metrics.monthlyExpenses) },
-              { label: 'Savings', value: formatCurrency(metrics.monthlySavings) },
-              { label: 'Rate', value: `${metrics.savingsRate.toFixed(1)}%` }
-            ].map((item, idx) => (
-              <div key={idx} style={{
-                borderBottom: `2px solid ${COLORS.border}`,
-                paddingBottom: '16px'
-              }}>
-                <p style={{ fontSize: '11px', color: COLORS.darkGrey, marginBottom: '8px', fontFamily: 'monospace', textTransform: 'uppercase' }}>
-                  {item.label}
-                </p>
-                <p style={{ fontSize: '18px', fontWeight: '900', color: COLORS.navy, fontFamily: 'monospace' }}>
-                  {item.value}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Asset Breakdown */}
-        {assetBreakdown.length > 0 && (
-          <div style={{
-            backgroundColor: COLORS.white,
-            border: `2px solid ${COLORS.black}`,
-            borderRadius: '0px',
-            padding: '40px',
-            marginBottom: '60px',
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '40px',
-            alignItems: 'start'
-          }}>
-            <div>
-              <h3 style={{ fontSize: '16px', marginBottom: '32px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                Asset Breakdown
-              </h3>
-              {assetBreakdown.map((asset, idx) => (
-                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', paddingBottom: '12px', borderBottom: `1px solid ${COLORS.border}` }}>
-                  <span style={{ fontSize: '13px', fontWeight: '600' }}>{asset.name}</span>
-                  <span style={{ fontSize: '13px', fontFamily: 'monospace', fontWeight: '700', color: COLORS.navy }}>{formatCurrency(asset.value)}</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {[
+                { label: 'Income', value: formatCurrency(metrics.monthlyIncome), icon: '→' },
+                { label: 'Expenses', value: formatCurrency(metrics.monthlyExpenses), icon: '←' },
+                { label: 'Savings Rate', value: `${metrics.savingsRate.toFixed(1)}%`, icon: '↑', color: metrics.savingsRate > 20 ? TOKENS.positive : TOKENS.warning }
+              ].map((item, idx) => (
+                <div key={idx} style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'baseline',
+                  paddingBottom: '12px',
+                  borderBottom: idx < 2 ? `1px solid ${TOKENS.borderSoft}` : 'none'
+                }}>
+                  <p style={{ fontSize: '13px', color: TOKENS.inkSecondary, margin: '0' }}>
+                    {item.label}
+                  </p>
+                  <p style={{
+                    fontSize: '15px',
+                    fontWeight: '600',
+                    color: item.color || TOKENS.brand,
+                    margin: '0',
+                    fontVariantNumeric: 'tabular-nums'
+                  }}>
+                    {item.value}
+                  </p>
                 </div>
               ))}
             </div>
-            <div style={{ height: '300px' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={assetBreakdown} cx="50%" cy="50%" outerRadius={90} fill={COLORS.navy} dataKey="value">
-                    {assetBreakdown.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={assetColors[index % assetColors.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value) => formatCurrency(value)} contentStyle={{ backgroundColor: COLORS.white, border: `2px solid ${COLORS.black}` }} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
           </div>
-        )}
 
-        {/* CTA Button - BRUTALIST */}
+          {/* Asset breakdown */}
+          {assetBreakdown.length > 0 && (
+            <div style={{
+              backgroundColor: TOKENS.surface,
+              border: `1px solid ${TOKENS.border}`,
+              borderRadius: '12px',
+              padding: '24px',
+              boxShadow: TOKENS.shadowSm,
+              display: 'flex',
+              flexDirection: 'column'
+            }}>
+              <p style={{
+                fontSize: '11px',
+                fontWeight: '600',
+                textTransform: 'uppercase',
+                color: TOKENS.inkTertiary,
+                letterSpacing: '0.07em',
+                marginBottom: '20px',
+                margin: '0 0 20px 0'
+              }}>
+                Asset Allocation
+              </p>
+              <div style={{ flex: 1, minHeight: '160px', marginBottom: '16px' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={assetBreakdown} cx="50%" cy="50%" innerRadius={40} outerRadius={70} dataKey="value">
+                      {assetBreakdown.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={assetColors[index % assetColors.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => formatCurrency(value)} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {assetBreakdown.map((asset, idx) => (
+                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{
+                        width: '8px',
+                        height: '8px',
+                        borderRadius: '2px',
+                        backgroundColor: assetColors[idx % assetColors.length]
+                      }} />
+                      <span style={{ color: TOKENS.inkSecondary }}>{asset.name}</span>
+                    </div>
+                    <span style={{ color: TOKENS.brand, fontWeight: '600', fontVariantNumeric: 'tabular-nums' }}>
+                      {formatCurrency(asset.value)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* CTA */}
         <button
           onClick={onContinue}
           style={{
-            padding: '16px 40px',
-            backgroundColor: COLORS.navy,
-            color: COLORS.white,
-            border: `3px solid ${COLORS.navy}`,
-            borderRadius: '0px',
+            padding: '12px 24px',
+            backgroundColor: TOKENS.brand,
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
             cursor: 'pointer',
-            fontSize: '14px',
-            fontWeight: '900',
-            transition: 'all 0.1s',
-            textTransform: 'uppercase',
-            letterSpacing: '0.1em',
-            marginBottom: '60px'
+            fontSize: '13px',
+            fontWeight: '600',
+            transition: 'all 0.15s'
           }}
           onMouseEnter={(e) => {
-            e.target.style.backgroundColor = COLORS.white;
-            e.target.style.color = COLORS.navy;
+            e.target.style.backgroundColor = '#5348dd';
+            e.target.style.transform = 'translateY(-1px)';
+            e.target.style.boxShadow = TOKENS.shadowMd;
           }}
           onMouseLeave={(e) => {
-            e.target.style.backgroundColor = COLORS.navy;
-            e.target.style.color = COLORS.white;
+            e.target.style.backgroundColor = TOKENS.brand;
+            e.target.style.transform = 'translateY(0)';
+            e.target.style.boxShadow = 'none';
           }}
         >
-          → 4 Factor Planning
+          View 4 Factor Planning →
         </button>
       </div>
     </div>
