@@ -281,56 +281,95 @@ export default function FNASummaryDashboard({ extractedData, onContinue }) {
           Work Optional Index
         </h2>
 
-        {/* Ring Visualization */}
-        <div style={{ position: 'relative', width: '280px', height: '280px', margin: '0 auto 32px' }}>
-          <svg viewBox="0 0 280 280" style={{ width: '100%', height: '100%' }}>
-            {/* Background ring segments */}
+        {/* Ring Visualization - Premium Enhanced */}
+        <div style={{ position: 'relative', width: '320px', height: '320px', margin: '0 auto 40px' }}>
+          <svg viewBox="0 0 280 280" style={{ width: '100%', height: '100%', filter: 'drop-shadow(0 4px 20px rgba(30, 58, 95, 0.08))' }}>
+            <defs>
+              {/* Glow filter for position indicator */}
+              <filter id="glow-filter">
+                <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+                <feMerge>
+                  <feMergeNode in="coloredBlur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+
+              {/* Gradient for ring segments */}
+              <linearGradient id="grad-taupe" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor={COLORS.taupe} stopOpacity="0.4" />
+                <stop offset="100%" stopColor={COLORS.taupe} stopOpacity="0.15" />
+              </linearGradient>
+              <linearGradient id="grad-gold" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor={COLORS.gold} stopOpacity="0.4" />
+                <stop offset="100%" stopColor={COLORS.gold} stopOpacity="0.15" />
+              </linearGradient>
+              <linearGradient id="grad-green" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor={COLORS.forestGreen} stopOpacity="0.4" />
+                <stop offset="100%" stopColor={COLORS.forestGreen} stopOpacity="0.15" />
+              </linearGradient>
+            </defs>
+
+            {/* Background ring segments with gradients */}
             {PHASE_MATRIX.map((phase, idx) => {
               const startAngle = idx * 120;
               const endAngle = (idx + 1) * 120;
               const startRad = (startAngle - 90) * (Math.PI / 180);
               const endRad = (endAngle - 90) * (Math.PI / 180);
-              const r = 120;
-              const x1 = 140 + r * Math.cos(startRad);
-              const y1 = 140 + r * Math.sin(startRad);
-              const x2 = 140 + r * Math.cos(endRad);
-              const y2 = 140 + r * Math.sin(endRad);
+              const innerR = 85;
+              const outerR = 120;
+
+              const x1Inner = 140 + innerR * Math.cos(startRad);
+              const y1Inner = 140 + innerR * Math.sin(startRad);
+              const x2Inner = 140 + innerR * Math.cos(endRad);
+              const y2Inner = 140 + innerR * Math.sin(endRad);
+
+              const x1Outer = 140 + outerR * Math.cos(startRad);
+              const y1Outer = 140 + outerR * Math.sin(startRad);
+              const x2Outer = 140 + outerR * Math.cos(endRad);
+              const y2Outer = 140 + outerR * Math.sin(endRad);
+
+              const gradId = idx === 0 ? 'grad-taupe' : idx === 1 ? 'grad-gold' : 'grad-green';
 
               return (
                 <path
                   key={`segment-${idx}`}
-                  d={`M 140 140 L ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2} Z`}
-                  fill={phase.color}
-                  opacity="0.2"
+                  d={`M ${x1Inner} ${y1Inner} A ${innerR} ${innerR} 0 0 1 ${x2Inner} ${y2Inner} L ${x2Outer} ${y2Outer} A ${outerR} ${outerR} 0 0 0 ${x1Outer} ${y1Outer} Z`}
+                  fill={`url(#${gradId})`}
                   stroke={phase.color}
-                  strokeWidth="2"
+                  strokeWidth="1.5"
+                  opacity="0.9"
                 />
               );
             })}
 
-            {/* Client position indicator */}
-            <circle cx="140" cy="140" r="110" fill="none" stroke={COLORS.border} strokeWidth="1" opacity="0.3" />
+            {/* Client position indicator with glow */}
+            <circle cx="140" cy="140" r="108" fill="none" stroke={COLORS.border} strokeWidth="0.5" opacity="0.2" />
             {(() => {
               const angle = (metrics.overallPosition / 100) * 360 - 90;
               const rad = angle * (Math.PI / 180);
-              const r = 110;
+              const r = 102;
               const x = 140 + r * Math.cos(rad);
               const y = 140 + r * Math.sin(rad);
               return (
                 <>
-                  <circle cx={x} cy={y} r="8" fill={metrics.phaseColor} />
-                  <circle cx={x} cy={y} r="12" fill="none" stroke={metrics.phaseColor} strokeWidth="2" opacity="0.5" />
+                  {/* Outer glow ring */}
+                  <circle cx={x} cy={y} r="14" fill="none" stroke={metrics.phaseColor} strokeWidth="1.5" opacity="0.25" filter="url(#glow-filter)" />
+                  {/* Inner indicator dot */}
+                  <circle cx={x} cy={y} r="10" fill={metrics.phaseColor} filter="url(#glow-filter)" />
+                  {/* Subtle border */}
+                  <circle cx={x} cy={y} r="10" fill="none" stroke="white" strokeWidth="2" opacity="0.3" />
                 </>
               );
             })()}
 
-            {/* Center circle */}
-            <circle cx="140" cy="140" r="60" fill={COLORS.offWhite} stroke={COLORS.border} strokeWidth="1" />
+            {/* Center circle - premium styling */}
+            <circle cx="140" cy="140" r="62" fill={COLORS.offWhite} stroke={COLORS.border} strokeWidth="1.5" opacity="0.6" />
+            <circle cx="140" cy="140" r="60" fill={COLORS.offWhite} />
 
             {/* Phase labels on ring */}
             {PHASE_MATRIX.map((phase, idx) => {
               const angle = (idx * 120 + 60) * (Math.PI / 180) - Math.PI / 2;
-              const r = 155;
+              const r = 158;
               const x = 140 + r * Math.cos(angle);
               const y = 140 + r * Math.sin(angle);
               return (
@@ -340,9 +379,10 @@ export default function FNASummaryDashboard({ extractedData, onContinue }) {
                   y={y}
                   textAnchor="middle"
                   dominantBaseline="middle"
-                  fontSize="11"
-                  fontWeight="600"
+                  fontSize="10"
+                  fontWeight="700"
                   fill={phase.color}
+                  opacity="0.85"
                 >
                   {phase.label}
                 </text>
