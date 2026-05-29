@@ -148,7 +148,7 @@ export default function FNAUploadView({ clientId, clientName, onUploadComplete }
               <h2 style={{ fontSize: '36px', color: COLORS.navy, marginBottom: '12px' }}>
                 ANALYSIS COMPLETE
               </h2>
-              <p style={{ fontSize: '14px', color: COLORS.darkGrey' }}>
+              <p style={{ fontSize: '14px', color: COLORS.darkGrey }}>
                 Preparing your financial summary
               </p>
             </div>
