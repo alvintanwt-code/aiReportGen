@@ -1,14 +1,12 @@
 import Anthropic from '@anthropic-ai/sdk';
-import * as fs from 'fs';
-import * as path from 'path';
+import formidable from 'formidable';
+import * as fs from 'fs/promises';
 
 const client = new Anthropic();
 
 export const config = {
   api: {
-    bodyParser: {
-      sizeLimit: '50mb',
-    },
+    bodyParser: false,
   },
 };
 
@@ -107,16 +105,20 @@ export default async function handler(req, res) {
   }
 
   try {
-    const files = [];
-    const fileKeys = Object.keys(req.files || {});
+    // Parse form data using formidable
+    const form = formidable({ multiples: true });
+    const [fields, uploadedFiles] = await form.parse(req);
 
-    // Collect all uploaded files
-    for (const key of fileKeys) {
-      const file = req.files[key];
-      if (Array.isArray(file)) {
-        files.push(...file);
-      } else {
-        files.push(file);
+    // Extract files from the parsed form
+    const files = [];
+    const fileFields = ['screenshot1', 'screenshot2', 'screenshot3', 'screenshot4'];
+
+    for (const field of fileFields) {
+      if (uploadedFiles[field]) {
+        const fieldFiles = Array.isArray(uploadedFiles[field])
+          ? uploadedFiles[field]
+          : [uploadedFiles[field]];
+        files.push(...fieldFiles);
       }
     }
 
@@ -127,7 +129,7 @@ export default async function handler(req, res) {
     // Prepare image content for Claude Vision
     const imageContent = [];
     for (const file of files) {
-      const fileBuffer = fs.readFileSync(file.path);
+      const fileBuffer = await fs.readFile(file.filepath);
       const base64Data = fileBuffer.toString('base64');
       const mimeType = file.mimetype || 'image/jpeg';
 
@@ -180,9 +182,11 @@ export default async function handler(req, res) {
 
     // Clean up uploaded files
     for (const file of files) {
-      fs.unlink(file.path, (err) => {
-        if (err) console.error('Error deleting file:', err);
-      });
+      try {
+        await fs.unlink(file.filepath);
+      } catch (err) {
+        console.error('Error deleting file:', err);
+      }
     }
 
     return res.status(200).json(extractedData);
