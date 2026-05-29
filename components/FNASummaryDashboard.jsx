@@ -22,6 +22,34 @@ export default function FNASummaryDashboard({ extractedData, onContinue }) {
     borderStrong: 'rgba(30, 58, 95, 0.12)',
   };
 
+  // Dynamic Phase Scoring Matrix
+  const PHASE_MATRIX = [
+    {
+      min: 0,
+      max: 5000,
+      phase: 'Accumulation',
+      label: 'Building Foundation',
+      color: COLORS.taupe,
+      description: 'Focus on consistent savings and strategic growth investments'
+    },
+    {
+      min: 5000,
+      max: 15000,
+      phase: 'Transition Ready',
+      label: 'Growing Wealth',
+      color: COLORS.gold,
+      description: 'Good foundation established, can start building passive income'
+    },
+    {
+      min: 15000,
+      max: Infinity,
+      phase: 'Work Optional Ready',
+      label: 'Strong Position',
+      color: COLORS.forestGreen,
+      description: 'Strong wealth position, focus on legacy and security'
+    }
+  ];
+
   // Calculate key metrics
   const metrics = useMemo(() => {
     const age = extractedData.personalInfo?.age || 0;
@@ -51,20 +79,15 @@ export default function FNASummaryDashboard({ extractedData, onContinue }) {
     // Use liquid net worth for phase scoring
     const scorePerAge = age > 0 ? liquidNetWorth / age : 0;
 
-    // Determine phase based on liquid net worth
-    let phase = 'Accumulation';
-    let phaseColor = COLORS.taupe;
-    let phaseDescription = 'Building foundation, needs growth';
+    // Find phase using matrix (will be available in metrics)
+    let phaseData = PHASE_MATRIX.find(p => scorePerAge >= p.min && scorePerAge < p.max) || PHASE_MATRIX[0];
 
-    if (scorePerAge > 15000) {
-      phase = 'Work Optional Ready';
-      phaseColor = COLORS.forestGreen;
-      phaseDescription = 'Strong wealth, focus on legacy & security';
-    } else if (scorePerAge > 5000) {
-      phase = 'Transition Ready';
-      phaseColor = COLORS.gold;
-      phaseDescription = 'Good foundation, can start passive income';
-    }
+    // Extract phase info (will calculate position in ring)
+    const phaseIndex = PHASE_MATRIX.indexOf(phaseData);
+    const phaseStart = phaseData.min;
+    const phaseEnd = phaseData.max === Infinity ? 30000 : phaseData.max;
+    const positionInPhase = ((scorePerAge - phaseStart) / (phaseEnd - phaseStart)) * 100;
+    const overallPosition = phaseIndex * 33.33 + (positionInPhase * 0.3333);
 
     // Calculate debt ratio
     const debtRatio = totalAssets > 0 ? (totalLiabilities / totalAssets) * 100 : 0;
@@ -83,9 +106,11 @@ export default function FNASummaryDashboard({ extractedData, onContinue }) {
       netWorth,
       liquidNetWorth,
       scorePerAge,
-      phase,
-      phaseColor,
-      phaseDescription,
+      phase: phaseData.phase,
+      phaseColor: phaseData.color,
+      phaseDescription: phaseData.description,
+      phaseLabel: phaseData.label,
+      overallPosition,
       debtRatio,
       monthlyIncome,
       monthlyExpenses,
@@ -235,58 +260,135 @@ export default function FNASummaryDashboard({ extractedData, onContinue }) {
         </p>
       </div>
 
-      {/* Phase Classification */}
-      <SectionCard title="📊 Financial Life Phase">
-        <div style={{ marginBottom: '24px' }}>
-          {/* Phase Badge - Signature Element */}
+      {/* HERO: Work Optional Index Ring */}
+      <div style={{
+        backgroundColor: 'white',
+        border: `1px solid ${COLORS.border}`,
+        borderRadius: '16px',
+        padding: '40px',
+        marginBottom: '40px',
+        textAlign: 'center'
+      }}>
+        <h2 style={{
+          fontSize: '14px',
+          fontWeight: '700',
+          textTransform: 'uppercase',
+          letterSpacing: '0.5px',
+          color: COLORS.warmGray,
+          marginBottom: '32px',
+          margin: '0 0 32px 0'
+        }}>
+          Work Optional Index
+        </h2>
+
+        {/* Ring Visualization */}
+        <div style={{ position: 'relative', width: '280px', height: '280px', margin: '0 auto 32px' }}>
+          <svg viewBox="0 0 280 280" style={{ width: '100%', height: '100%' }}>
+            {/* Background ring segments */}
+            {PHASE_MATRIX.map((phase, idx) => {
+              const startAngle = idx * 120;
+              const endAngle = (idx + 1) * 120;
+              const startRad = (startAngle - 90) * (Math.PI / 180);
+              const endRad = (endAngle - 90) * (Math.PI / 180);
+              const r = 120;
+              const x1 = 140 + r * Math.cos(startRad);
+              const y1 = 140 + r * Math.sin(startRad);
+              const x2 = 140 + r * Math.cos(endRad);
+              const y2 = 140 + r * Math.sin(endRad);
+
+              return (
+                <path
+                  key={`segment-${idx}`}
+                  d={`M 140 140 L ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2} Z`}
+                  fill={phase.color}
+                  opacity="0.2"
+                  stroke={phase.color}
+                  strokeWidth="2"
+                />
+              );
+            })}
+
+            {/* Client position indicator */}
+            <circle cx="140" cy="140" r="110" fill="none" stroke={COLORS.border} strokeWidth="1" opacity="0.3" />
+            {(() => {
+              const angle = (metrics.overallPosition / 100) * 360 - 90;
+              const rad = angle * (Math.PI / 180);
+              const r = 110;
+              const x = 140 + r * Math.cos(rad);
+              const y = 140 + r * Math.sin(rad);
+              return (
+                <>
+                  <circle cx={x} cy={y} r="8" fill={metrics.phaseColor} />
+                  <circle cx={x} cy={y} r="12" fill="none" stroke={metrics.phaseColor} strokeWidth="2" opacity="0.5" />
+                </>
+              );
+            })()}
+
+            {/* Center circle */}
+            <circle cx="140" cy="140" r="60" fill={COLORS.offWhite} stroke={COLORS.border} strokeWidth="1" />
+
+            {/* Phase labels on ring */}
+            {PHASE_MATRIX.map((phase, idx) => {
+              const angle = (idx * 120 + 60) * (Math.PI / 180) - Math.PI / 2;
+              const r = 155;
+              const x = 140 + r * Math.cos(angle);
+              const y = 140 + r * Math.sin(angle);
+              return (
+                <text
+                  key={`label-${idx}`}
+                  x={x}
+                  y={y}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fontSize="11"
+                  fontWeight="600"
+                  fill={phase.color}
+                >
+                  {phase.label}
+                </text>
+              );
+            })}
+          </svg>
+
+          {/* Center content */}
           <div style={{
-            padding: '24px',
-            backgroundColor: metrics.phaseColor,
-            color: 'white',
-            borderRadius: '12px',
-            textAlign: 'center',
-            marginBottom: '24px'
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            textAlign: 'center'
           }}>
-            <p style={{ fontSize: '13px', opacity: 0.95, marginBottom: '8px', margin: '0 0 8px 0', fontWeight: '500' }}>Current Phase</p>
-            <p style={{ fontSize: '32px', fontWeight: '700', fontFamily: 'Georgia, serif', marginBottom: '8px', margin: '0 0 8px 0' }}>
-              {metrics.phase}
+            <p style={{ fontSize: '12px', color: COLORS.warmGray, margin: '0 0 4px 0' }}>Your Index</p>
+            <p style={{ fontSize: '28px', fontWeight: '700', color: metrics.phaseColor, margin: '0' }}>
+              ${(metrics.scorePerAge || 0).toLocaleString('en-SG', { maximumFractionDigits: 0 })}
             </p>
-            <p style={{ fontSize: '14px', opacity: 0.95, margin: '0', lineHeight: '1.5' }}>{metrics.phaseDescription}</p>
+            <p style={{ fontSize: '10px', color: COLORS.mutedGray, margin: '4px 0 0 0' }}>per year of age</p>
           </div>
-
-          <p style={{ fontSize: '13px', color: COLORS.warmGray, marginBottom: '16px', margin: '0 0 16px 0' }}>
-            <strong style={{ color: COLORS.navy }}>Score:</strong> ${(metrics.scorePerAge || 0).toLocaleString('en-SG', { maximumFractionDigits: 0 })} per year of age
-          </p>
-
-          {/* Phase Chart */}
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={[
-              { phase: 'Accumulation', min: 0, max: 5000 },
-              { phase: 'Transition', min: 5000, max: 15000 },
-              { phase: 'Work Optional', min: 15000, max: 50000 }
-            ]}>
-              <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} />
-              <XAxis dataKey="phase" fontSize={12} tick={{ fill: COLORS.warmGray }} />
-              <YAxis fontSize={12} tick={{ fill: COLORS.warmGray }} label={{ value: 'S$ per year of age', angle: -90, position: 'insideLeft', fill: COLORS.warmGray }} />
-              <Tooltip contentStyle={{ backgroundColor: COLORS.offWhite, border: `1px solid ${COLORS.borderStrong}`, borderRadius: '8px' }} />
-              <Bar dataKey="max" fill={COLORS.taupe} opacity={0.3} />
-              <Bar dataKey="min" fill={COLORS.gold} />
-            </BarChart>
-          </ResponsiveContainer>
-
-          {/* Insights */}
-          {metrics.scorePerAge > 10000 && (
-            <div style={{ marginTop: '16px', padding: '12px', backgroundColor: 'rgba(45, 80, 22, 0.08)', border: `1px solid ${COLORS.forestGreen}`, borderRadius: '8px', color: COLORS.forestGreen, fontSize: '13px' }}>
-              ✅ <strong>Ahead of curve:</strong> Your networth is strong for your age. Consider building passive income streams and legacy planning.
-            </div>
-          )}
-          {metrics.scorePerAge < 5000 && (
-            <div style={{ marginTop: '16px', padding: '12px', backgroundColor: 'rgba(200, 92, 92, 0.08)', border: `1px solid ${COLORS.softRed}`, borderRadius: '8px', color: COLORS.softRed, fontSize: '13px' }}>
-              ⚠️ <strong>Building phase:</strong> Focus on growing your wealth through consistent savings and strategic investments.
-            </div>
-          )}
         </div>
-      </SectionCard>
+
+        {/* Phase Info */}
+        <div style={{ maxWidth: '500px', margin: '0 auto' }}>
+          <h3 style={{
+            fontSize: '18px',
+            fontWeight: '700',
+            fontFamily: 'Georgia, serif',
+            color: metrics.phaseColor,
+            marginBottom: '8px',
+            margin: '0 0 8px 0'
+          }}>
+            {metrics.phaseLabel}
+          </h3>
+          <p style={{
+            fontSize: '14px',
+            color: COLORS.navy,
+            lineHeight: '1.6',
+            margin: '0'
+          }}>
+            {metrics.phaseDescription}
+          </p>
+        </div>
+      </div>
+
 
       {/* Key Metrics */}
       <SectionCard title="💰 Key Financial Metrics">
