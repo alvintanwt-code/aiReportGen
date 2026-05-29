@@ -7,6 +7,7 @@ import ClientList from '../../components/ClientList';
 
 function FNAContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [selectedClientId, setSelectedClientId] = useState(null);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -17,8 +18,15 @@ function FNAContent() {
     if (saved) {
       setClients(JSON.parse(saved));
     }
+
+    // Check if clientId is in query params and set it
+    const clientIdFromParams = searchParams.get('clientId');
+    if (clientIdFromParams) {
+      setSelectedClientId(clientIdFromParams);
+    }
+
     setLoading(false);
-  }, []);
+  }, [searchParams]);
 
   const selectedClient = clients.find(c => c.id === selectedClientId);
 
