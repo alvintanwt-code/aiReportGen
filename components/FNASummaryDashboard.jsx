@@ -27,7 +27,7 @@ export default function FNASummaryDashboard({ extractedData, onContinue }) {
     shadowMd: '0 4px 12px rgba(0,0,0,0.06), 0 2px 4px rgba(0,0,0,0.04)',
   };
 
-  // Domain concepts: wealth trajectory, life phases, net worth, passive income thresholds
+  // 3 main phases with 0-100 scoring
   const PHASE_MATRIX = [
     {
       min: 0,
@@ -71,7 +71,9 @@ export default function FNASummaryDashboard({ extractedData, onContinue }) {
     const phaseStart = phaseData.min;
     const phaseEnd = phaseData.max === Infinity ? 30000 : phaseData.max;
     const positionInPhase = Math.min(100, ((scorePerAge - phaseStart) / (phaseEnd - phaseStart)) * 100);
-    const overallPosition = phaseIndex * 33.33 + (positionInPhase * 0.3333);
+    // Score out of 100: Phase-based with position within phase
+    // Accumulation (0-5k): 0-33, Transition (5k-15k): 34-66, Work Optional (15k+): 67-100
+    const scoreOut100 = Math.min(100, phaseIndex * 33.33 + (positionInPhase * 0.3333));
 
     const debtRatio = totalAssets > 0 ? (totalLiabilities / totalAssets) * 100 : 0;
     const monthlyIncome = extractedData.cashflow?.income || 0;
@@ -82,7 +84,7 @@ export default function FNASummaryDashboard({ extractedData, onContinue }) {
     return {
       age, liquidAssets, totalAssets, totalLiabilities, netWorth, liquidNetWorth, scorePerAge,
       phase: phaseData.label, phaseDescription: phaseData.description,
-      overallPosition, debtRatio, monthlyIncome, monthlyExpenses, monthlySavings, savingsRate
+      scoreOut100, positionInPhase, debtRatio, monthlyIncome, monthlyExpenses, monthlySavings, savingsRate
     };
   }, [extractedData]);
 
@@ -156,90 +158,208 @@ export default function FNASummaryDashboard({ extractedData, onContinue }) {
           </p>
         </div>
 
-        {/* HERO: Work Optional Index - Precision arc showing wealth trajectory */}
+        {/* HERO: Work Optional Index - Wealth Trajectory with Momentum */}
         <div style={{
           backgroundColor: TOKENS.surface,
           border: `1px solid ${TOKENS.border}`,
           borderRadius: '12px',
-          padding: '40px',
-          marginBottom: '32px',
+          padding: '48px',
+          marginBottom: '48px',
           boxShadow: TOKENS.shadowSm
         }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '48px' }}>
-            {/* Left: Arc visualization */}
-            <div style={{ flex: 1, minWidth: '260px' }}>
-              <p style={{
-                fontSize: '11px',
-                fontWeight: '600',
-                textTransform: 'uppercase',
-                color: TOKENS.inkTertiary,
-                letterSpacing: '0.07em',
-                marginBottom: '24px',
-                margin: '0 0 24px 0'
+          <style>{`
+            @keyframes slideIn {
+              from { opacity: 0; transform: translateX(-10px); }
+              to { opacity: 1; transform: translateX(0); }
+            }
+            .hero-arc { animation: slideIn 0.6s ease-out 0.1s both; }
+          `}</style>
+
+          {/* Header */}
+          <div style={{ marginBottom: '40px' }}>
+            <p style={{
+              fontSize: '11px',
+              fontWeight: '600',
+              textTransform: 'uppercase',
+              color: TOKENS.inkTertiary,
+              letterSpacing: '0.07em',
+              marginBottom: '12px',
+              margin: '0 0 12px 0'
+            }}>
+              Wealth Trajectory
+            </p>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '16px' }}>
+              <h2 style={{
+                fontSize: '26px',
+                fontWeight: '700',
+                letterSpacing: '-0.02em',
+                color: TOKENS.inkPrimary,
+                margin: '0'
               }}>
                 Work Optional Index
+              </h2>
+              <p style={{
+                fontSize: '13px',
+                color: TOKENS.inkSecondary,
+                margin: '0'
+              }}>
+                Shows your position on the wealth journey
               </p>
+            </div>
+          </div>
 
-              <svg viewBox="0 0 220 140" style={{ width: '100%', height: 'auto' }}>
-                {/* Background arc */}
-                <path d="M 30 130 A 100 100 0 0 1 190 130" fill="none" stroke={TOKENS.borderSoft} strokeWidth="12" strokeLinecap="round" />
-
-                {/* Filled arc to current position */}
+          {/* Two-column layout: Arc + Details */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '48px', alignItems: 'start' }}>
+            {/* LEFT: Arc with Phase Visualization */}
+            <div className="hero-arc">
+              <svg viewBox="0 0 280 160" style={{ width: '100%', height: 'auto' }}>
+                {/* Background arc - full track */}
                 <path
-                  d="M 30 130 A 100 100 0 0 1 190 130"
+                  d="M 40 140 A 120 120 0 0 1 240 140"
                   fill="none"
-                  stroke={TOKENS.brand}
-                  strokeWidth="12"
+                  stroke={TOKENS.borderSoft}
+                  strokeWidth="14"
                   strokeLinecap="round"
-                  strokeDasharray={`${(metrics.overallPosition / 100) * 502.4} 502.4`}
                 />
 
-                {/* Phase labels */}
-                <text x="30" y="155" fontSize="11" fontWeight="500" fill={TOKENS.inkTertiary} textAnchor="middle">Accumulation</text>
-                <text x="110" y="155" fontSize="11" fontWeight="500" fill={TOKENS.inkTertiary} textAnchor="middle">Transition</text>
-                <text x="190" y="155" fontSize="11" fontWeight="500" fill={TOKENS.inkTertiary} textAnchor="middle">Work Optional</text>
+                {/* Progress arc - filled to current position */}
+                <path
+                  d="M 40 140 A 120 120 0 0 1 240 140"
+                  fill="none"
+                  stroke={TOKENS.brand}
+                  strokeWidth="14"
+                  strokeLinecap="round"
+                  strokeDasharray={`${(metrics.scoreOut100 / 100) * 628} 628`}
+                  style={{ transition: 'stroke-dasharray 0.8s ease-out' }}
+                />
+
+                {/* Phase markers (10 checkpoints at 10% intervals) */}
+                {[0, 10, 20, 30, 40, 50, 60, 70, 80, 90].map((pos, idx) => {
+                  const angle = (pos / 100) * Math.PI;
+                  const x = 140 + Math.cos(Math.PI - angle) * 120;
+                  const y = 140 + Math.sin(Math.PI - angle) * 120;
+                  return (
+                    <circle
+                      key={idx}
+                      cx={x}
+                      cy={y}
+                      r="4"
+                      fill={metrics.scoreOut100 >= pos ? TOKENS.brand : TOKENS.borderSoft}
+                    />
+                  );
+                })}
+
+                {/* Current position indicator (circle) */}
+                {(() => {
+                  const progress = metrics.scoreOut100 / 100;
+                  const angle = progress * Math.PI;
+                  const x = 140 + Math.cos(Math.PI - angle) * 120;
+                  const y = 140 + Math.sin(Math.PI - angle) * 120;
+                  return (
+                    <g>
+                      {/* Glow */}
+                      <circle cx={x} cy={y} r="12" fill={TOKENS.brand} opacity="0.15" />
+                      {/* Marker */}
+                      <circle cx={x} cy={y} r="8" fill={TOKENS.brand} stroke={TOKENS.surface} strokeWidth="2" />
+                    </g>
+                  );
+                })()}
+
+                {/* Phase labels with better positioning */}
+                <text x="40" y="165" fontSize="11" fontWeight="500" fill={TOKENS.inkSecondary} textAnchor="middle">Accumulation</text>
+                <text x="140" y="25" fontSize="11" fontWeight="500" fill={TOKENS.inkSecondary} textAnchor="middle">Transition Ready</text>
+                <text x="240" y="165" fontSize="11" fontWeight="500" fill={TOKENS.inkSecondary} textAnchor="middle">Work Optional</text>
               </svg>
+
+              {/* Band Progress Indicator */}
+              <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <p style={{
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    color: TOKENS.inkTertiary,
+                    margin: '0'
+                  }}>
+                    Progress within band
+                  </p>
+                  <p style={{
+                    fontSize: '19px',
+                    fontWeight: '700',
+                    color: TOKENS.brand,
+                    margin: '4px 0 0 0',
+                    fontVariantNumeric: 'tabular-nums'
+                  }}>
+                    {Math.round(metrics.positionInPhase)}%
+                  </p>
+                </div>
+                <div style={{
+                  flex: 1,
+                  height: '4px',
+                  backgroundColor: TOKENS.borderSoft,
+                  borderRadius: '2px',
+                  marginLeft: '16px',
+                  overflow: 'hidden'
+                }}>
+                  <div style={{
+                    height: '100%',
+                    width: `${Math.round(metrics.positionInPhase)}%`,
+                    backgroundColor: TOKENS.brand,
+                    transition: 'width 0.8s ease-out'
+                  }} />
+                </div>
+              </div>
             </div>
 
-            {/* Right: Current position and context */}
-            <div style={{ flex: 1 }}>
-              <div style={{ marginBottom: '32px' }}>
+            {/* RIGHT: Key Metrics + Phase Context */}
+            <div>
+              {/* Work Optional Index Score */}
+              <div style={{
+                backgroundColor: TOKENS.brandLight,
+                border: `1px solid rgba(99, 91, 255, 0.2)`,
+                borderRadius: '12px',
+                padding: '24px',
+                marginBottom: '24px'
+              }}>
                 <p style={{
                   fontSize: '11px',
                   fontWeight: '600',
                   textTransform: 'uppercase',
-                  color: TOKENS.inkTertiary,
+                  color: TOKENS.brand,
                   letterSpacing: '0.07em',
                   marginBottom: '8px',
                   margin: '0 0 8px 0'
                 }}>
-                  Your Index
+                  Work Optional Index
                 </p>
                 <p style={{
-                  fontSize: '28px',
+                  fontSize: '32px',
                   fontWeight: '700',
                   color: TOKENS.brand,
                   letterSpacing: '-0.02em',
                   margin: '0',
                   fontVariantNumeric: 'tabular-nums'
                 }}>
-                  ${(metrics.scorePerAge || 0).toLocaleString('en-SG', { maximumFractionDigits: 0 })}
+                  {Math.round(metrics.scoreOut100)}/100
                 </p>
                 <p style={{
-                  fontSize: '11px',
-                  color: TOKENS.inkTertiary,
+                  fontSize: '12px',
+                  color: TOKENS.brand,
+                  opacity: 0.8,
                   margin: '4px 0 0 0'
                 }}>
-                  per year of age
+                  S${(metrics.scorePerAge || 0).toLocaleString('en-SG', { maximumFractionDigits: 0 })} per year of age
                 </p>
               </div>
 
-              <div style={{ paddingTop: '24px', borderTop: `1px solid ${TOKENS.border}` }}>
+              {/* Phase Context Card */}
+              <div style={{
+                paddingLeft: '16px',
+                borderLeft: `4px solid ${TOKENS.brand}`,
+              }}>
                 <h3 style={{
                   fontSize: '15px',
-                  fontWeight: '600',
-                  color: TOKENS.brand,
-                  marginBottom: '8px',
+                  fontWeight: '700',
+                  color: TOKENS.inkPrimary,
                   margin: '0 0 8px 0'
                 }}>
                   {metrics.phase}
@@ -252,6 +372,39 @@ export default function FNASummaryDashboard({ extractedData, onContinue }) {
                 }}>
                   {metrics.phaseDescription}
                 </p>
+
+                {/* Momentum indicator */}
+                <div style={{
+                  marginTop: '16px',
+                  paddingTop: '16px',
+                  borderTop: `1px solid ${TOKENS.border}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  <span style={{
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    textTransform: 'uppercase',
+                    color: TOKENS.inkTertiary,
+                    letterSpacing: '0.07em'
+                  }}>
+                    Trajectory
+                  </span>
+                  <span style={{
+                    fontSize: '16px',
+                    color: metrics.monthlySavings > 0 ? TOKENS.positive : TOKENS.negative
+                  }}>
+                    {metrics.monthlySavings > 0 ? '↗' : '↘'}
+                  </span>
+                  <span style={{
+                    fontSize: '12px',
+                    color: metrics.monthlySavings > 0 ? TOKENS.positive : TOKENS.negative,
+                    fontWeight: '600'
+                  }}>
+                    {metrics.monthlySavings > 0 ? 'Moving forward' : 'Needs attention'}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
