@@ -32,14 +32,15 @@ For each insurance policy, extract:
 - If it's a Wealth policy: name, annual premium, total premium paid, years left to pay
 
 ASSETS:
-- Total cash savings
-- CPF OA (Ordinary Account)
-- CPF SA (Special Account)
-- CPF MA (Medisave Account)
-- Equities
-- Mutual funds
-- Insurance cash value
-- Residential property value
+For each category, sum all individual holdings to get the total:
+- Total cash savings (bank accounts)
+- CPF OA (Ordinary Account) - total across all CPF accounts
+- CPF SA (Special Account) - total across all CPF accounts
+- CPF MA (Medisave Account) - total across all CPF accounts
+- Equities (sum of all individual equity holdings, including stocks in tables)
+- Mutual funds (sum of all mutual fund holdings in tables - Current Value column)
+- Insurance cash value (cash surrender value or policy values)
+- Residential property value (primary residence only)
 
 LIABILITIES:
 - Loans (any kind)
@@ -99,6 +100,10 @@ Important:
 - Extract ALL numeric values as numbers (not strings)
 - If a value is not found, use 0 or empty string
 - Be precise with currency amounts
+- For tables with multiple rows: SUM all values in that category (e.g., if there are 5 equity holdings, add them all together)
+- Use "Current Value" or equivalent column for investment totals
+- Ignore unrealised gains/losses columns - only use current values
+- For portfolio statements: look for "Total" rows at the bottom or sum individual holdings
 - Return ONLY valid JSON, no markdown or explanations`;
 
 export default async function handler(req, res) {

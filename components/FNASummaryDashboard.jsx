@@ -61,9 +61,12 @@ export default function FNASummaryDashboard({ extractedData, onContinue }) {
       (extractedData.assets?.insuranceCashValue || 0);
 
     const totalAssets = liquidAssets + (extractedData.assets?.residentialPropertyValue || 0);
-    const totalLiabilities = (extractedData.liabilities?.loans || 0) + (extractedData.liabilities?.mortgage || 0);
+    const personalLoans = extractedData.liabilities?.loans || 0;
+    const propertyMortgage = extractedData.liabilities?.mortgage || 0;
+    const totalLiabilities = personalLoans + propertyMortgage;
     const netWorth = totalAssets - totalLiabilities;
-    const liquidNetWorth = liquidAssets - totalLiabilities;
+    // For Work Optional Index: exclude property mortgage (debt tied to excluded asset)
+    const liquidNetWorth = liquidAssets - personalLoans;
     const scorePerAge = age > 0 ? liquidNetWorth / age : 0;
 
     const phaseData = PHASE_MATRIX.find(p => scorePerAge >= p.min && scorePerAge < p.max) || PHASE_MATRIX[0];

@@ -98,40 +98,59 @@ export default async function handler(req, res) {
               },
               {
                 type: 'text',
-                text: `You are an expert at reading financial tables with precision. Extract portfolio holdings with ABSOLUTE accuracy.
+                text: `You are an expert at reading financial portfolio tables from ANY platform or format. Extract holdings intelligently regardless of table structure.
 
-STEP 1: Locate the "Fx Rate" column header in the table. This column contains exchange rates.
+STEP 1: IDENTIFY THE COLUMNS
+First, identify what columns exist in the table by their headers. They may have different names across platforms:
+- Fund/Product Name: "Product Name", "Fund", "Investment", "Security", "Asset", "Description"
+- Quantity/Units: "Units", "Quantity", "Shares", "Units Held", "No. of Units", "Nominal Value/Quantity", "Holdings", "Amount"
+- Current Unit Price: "Unit Price", "Price", "Indicative Price", "NAV", "Current Price", "Price per Unit"
+- Cost Per Unit: "Weighted Average Cost", "Cost per Unit", "Average Cost", "Cost Price"
+- Currency: "Currency", "Ccy", "Currency Code" (or inferred from amounts)
+- Current Value: "Current Value", "Market Value", "Total Value", "Value", "Amount"
+- Exchange Rate: "Fx Rate", "Exchange Rate", "FX", "Conversion Rate", "Rate"
 
-STEP 2: For each row in the table, read the values in this EXACT order:
-1. Fund Name (leftmost column)
-2. Currency (e.g., USD, SGD, EUR)
-3. Unit (quantity)
-4. Unit Price
-5. Fx Rate (READ EVERY CHARACTER including all decimal places - these are typically 4-6 decimal numbers like 1.27959, 1.48520, 1.00000)
+STEP 2: MAP COLUMNS SEMANTICALLY
+Match the actual column headers to the standard fields. Use context and column position to infer meaning.
+For example:
+- "Nominal Value/Quantity" column = Number of Units (not the investment amount)
+- "Indicative Price" column = Current Unit Price
+- "Weighted Average Cost" = Cost per unit paid originally (use "Indicative Price" for current value)
+- If you see "Current Value" and missing units: calculate units = Current Value / Indicative Price
+- If you see a column with decimal numbers between 0.5-2.0, it's likely FX rate
+- Current Value = Units × Indicative Price (calculate if not shown)
 
-STEP 3: CRITICAL - When reading Fx Rate values:
-- Read character by character: digit, dot, digit, digit, digit, digit, digit
-- Examples of correct reading: 1.27959, 1.48520, 1.00000, 0.95234
-- DO NOT round to 1.3, 1.35, 1.5, or 1.0
-- If you see "1.27959" → return 1.27959 exactly
-- If you see "1.48520" → return 1.48520 exactly
+STEP 3: EXTRACT WITH PRECISION
+For each row, extract:
+1. fundName: The investment/product name
+2. currency: Currency code (USD, SGD, EUR, etc.) - infer if not explicit
+3. units: Quantity/number of units held (extract or calculate)
+4. unitPrice: Price per unit (extract or calculate as Current Value / Units)
+5. fxRateToSgd: Exchange rate to SGD (look for FX/exchange rate column, default to 1.0 if SGD)
 
-STEP 4: Return ONLY valid JSON array (no markdown, no explanation):
+STEP 4: HANDLE VARIATIONS
+- If "Current Value" is shown but units/price missing: try to infer from other columns
+- If currency is not explicit in table: assume SGD if currency code not present
+- If FX rate not shown: use 1.0 for SGD, look up standard rates for other currencies
+- Ignore total/summary rows - extract only individual holdings
+
+STEP 5: Return ONLY valid JSON array (no markdown, no explanation):
 [
   {
     "fundName": "exact fund name",
     "currency": "USD",
-    "units": exact number,
-    "unitPrice": exact number,
-    "fxRateToSgd": exact FX rate with all decimals (e.g., 1.27959, NOT 1.3)
+    "units": number,
+    "unitPrice": number,
+    "fxRateToSgd": number with decimals (e.g., 1.27959)
   }
 ]
 
-CRITICAL REMINDERS:
-- Preserve ALL decimal places in Fx Rate
-- Do not round, truncate, or approximate
-- If uncertain about a digit, say so in a separate field but best guess
-- Focus on accuracy over speed`,
+CRITICAL RULES:
+- Preserve ALL decimal places in all numbers
+- Do not round or approximate
+- Be flexible with column names but consistent with values
+- Extract from the actual data shown, calculate if needed
+- Return best-effort for any missing data`,
               },
             ],
           },
