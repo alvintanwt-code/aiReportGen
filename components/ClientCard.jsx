@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { auth } from '@/lib/firebase';
-import { loadFNASummary } from '@/lib/firebaseUtils';
+import { auth } from '../lib/firebase';
+import { loadFNASummary } from '../lib/firebaseUtils';
 import ReviewList from './ReviewList';
 
 export default function ClientCard({

@@ -3,8 +3,8 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
-import { auth } from '@/lib/firebase';
-import { saveFNASummary } from '@/lib/firebaseUtils';
+import { auth } from '../lib/firebase';
+import { saveFNASummary } from '../lib/firebaseUtils';
 
 export default function FNASummaryDashboard({ extractedData, onContinue }) {
   const router = useRouter();

@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { auth } from '@/lib/firebase';
-import { loadFNASummary } from '@/lib/firebaseUtils';
-import FNASummaryDashboard from '@/components/FNASummaryDashboard';
+import { auth } from '../../lib/firebase';
+import { loadFNASummary } from '../../lib/firebaseUtils';
+import FNASummaryDashboard from '../../components/FNASummaryDashboard';
 
 export default function FNASummaryViewPage() {
   const router = useRouter();
