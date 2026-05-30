@@ -99,6 +99,7 @@ export default function FNASummaryDashboard({ extractedData, onContinue }) {
   // Auto-save FNA summary to Firebase
   useEffect(() => {
     const autoSave = async () => {
+      console.log('[FNA AutoSave] clientId from URL:', clientId);
       if (!auth.currentUser || !clientId || !extractedData) return;
 
       setIsSaving(true);

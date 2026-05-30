@@ -21,13 +21,19 @@ export default function ClientCard({
 
   // Check if saved FNA summary exists
   useEffect(() => {
+    console.log('[ClientCard] useEffect running for client:', client.id);
     const checkFNASummary = async () => {
-      if (!auth.currentUser) {
+      const userId = auth.currentUser?.uid;
+      console.log('[ClientCard] auth.currentUser:', auth.currentUser?.email, 'uid:', userId);
+      if (!userId) {
+        console.log('[ClientCard FNA Check] No auth user (userId undefined)');
         setIsCheckingFNA(false);
         return;
       }
       try {
-        const summary = await loadFNASummary(auth.currentUser.uid, client.id);
+        console.log('[ClientCard FNA Check] Checking for userId:', userId, 'clientId:', client.id);
+        const summary = await loadFNASummary(userId, client.id);
+        console.log('[ClientCard FNA Check] Found summary:', !!summary);
         setHasSavedSummary(!!summary);
       } catch (error) {
         console.error('Error checking FNA summary:', error);
@@ -39,6 +45,7 @@ export default function ClientCard({
   }, [client.id]);
 
   console.log('[ClientCard] Rendering client:', client.id);
+  console.log('[ClientCard] Client object:', { id: client.id, name: client.name });
 
   const clientReviews = reviews.filter((r) => r.clientId === client.id);
   const createdDate = new Date(client.createdAt).toLocaleDateString();

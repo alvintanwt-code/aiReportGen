@@ -6,13 +6,13 @@ import { reload } from 'firebase/auth';
 import ReviewUploadView from '../components/ReviewUploadView';
 import LoginPage from '../components/LoginPage';
 import { getInitialClients, getInitialReviews } from '../lib/mockData';
-import { onAuthChange, logout, saveClients, loadClients, saveReviews, loadReviews, getUserProfile } from '../lib/firebaseUtils';
+import { onAuthChange, logout, saveClients, loadClients, saveReviews, loadReviews, getUserProfile, loadFNASummary } from '../lib/firebaseUtils';
 import { auth } from '../lib/firebase';
 
 // Simple UUID generator
 const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-function LandingPage({ clients, reviews, onAddClient, onSelectClient, onDeleteClient, onNewReview, onPastReviews, userName, searchQuery, onSearchChange }) {
+function LandingPage({ clients, reviews, onAddClient, onSelectClient, onDeleteClient, onNewReview, onPastReviews, userName, searchQuery, onSearchChange, savedSummaryClientIds }) {
   const router = useRouter();
   const [clientName, setClientName] = useState('');
   const [displayedText, setDisplayedText] = useState('');
@@ -376,6 +376,31 @@ function LandingPage({ clients, reviews, onAddClient, onSelectClient, onDeleteCl
                     >
                       Financial Needs Analysis
                     </button>
+                    {savedSummaryClientIds.has(client.id) && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/fna-summary-view?clientId=${client.id}`);
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '10px 16px',
+                          backgroundColor: '#28a745',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '22px',
+                          cursor: 'pointer',
+                          fontSize: '13px',
+                          fontWeight: '500',
+                          transition: 'background-color 0.2s ease',
+                          fontFamily: "'Poppins', sans-serif",
+                        }}
+                        onMouseEnter={(e) => e.target.style.backgroundColor = '#218838'}
+                        onMouseLeave={(e) => e.target.style.backgroundColor = '#28a745'}
+                      >
+                        ✓ View FNA Summary
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -407,6 +432,7 @@ export default function Home() {
   const [selectedClientId, setSelectedClientId] = useState(null);
   const [isHydrated, setIsHydrated] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [savedSummaryClientIds, setSavedSummaryClientIds] = useState(new Set());
 
   console.log('[App] Render - user:', user?.email, 'currentView:', currentView);
 
@@ -446,6 +472,33 @@ export default function Home() {
 
     return unsubscribe;
   }, []);
+
+  // Load FNA summary status for all clients
+  useEffect(() => {
+    console.log('[App] FNA Check: user=', user?.uid, 'clients=', clients.length);
+    if (user && clients.length > 0) {
+      console.log('[App] Loading FNA summary status for', clients.length, 'clients');
+      const loadSummaryStatus = async () => {
+        const summaryIds = new Set();
+        for (const client of clients) {
+          try {
+            const summary = await loadFNASummary(user.uid, client.id);
+            if (summary) {
+              console.log('[App] Found FNA summary for client:', client.id);
+              summaryIds.add(client.id);
+            } else {
+              console.log('[App] No FNA summary for client:', client.id);
+            }
+          } catch (error) {
+            console.error('[App] Error loading FNA summary for client', client.id, ':', error);
+          }
+        }
+        console.log('[App] Summary check complete, found', summaryIds.size, 'summaries');
+        setSavedSummaryClientIds(summaryIds);
+      };
+      loadSummaryStatus();
+    }
+  }, [user, clients]);
 
   // Save clients to Firebase whenever they change
   useEffect(() => {
@@ -702,6 +755,7 @@ export default function Home() {
             userName={userProfile?.displayName || user?.displayName || user?.email?.split('@')[0] || 'Advisor'}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
+            savedSummaryClientIds={savedSummaryClientIds}
           />
           {/* Search Bar & Logout Button */}
           <div style={{ position: 'fixed', top: '20px', right: '20px', display: 'flex', gap: '12px', alignItems: 'center', zIndex: 1000 }}>
