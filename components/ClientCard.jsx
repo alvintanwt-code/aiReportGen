@@ -1,7 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { auth } from '@/lib/firebase';
+import { loadFNASummary } from '@/lib/firebaseUtils';
 import ReviewList from './ReviewList';
 
 export default function ClientCard({
@@ -13,7 +15,28 @@ export default function ClientCard({
   onStartReview,
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [hasSavedSummary, setHasSavedSummary] = useState(false);
+  const [isCheckingFNA, setIsCheckingFNA] = useState(true);
   const router = useRouter();
+
+  // Check if saved FNA summary exists
+  useEffect(() => {
+    const checkFNASummary = async () => {
+      if (!auth.currentUser) {
+        setIsCheckingFNA(false);
+        return;
+      }
+      try {
+        const summary = await loadFNASummary(auth.currentUser.uid, client.id);
+        setHasSavedSummary(!!summary);
+      } catch (error) {
+        console.error('Error checking FNA summary:', error);
+      } finally {
+        setIsCheckingFNA(false);
+      }
+    };
+    checkFNASummary();
+  }, [client.id]);
 
   console.log('[ClientCard] Rendering client:', client.id);
 
@@ -119,6 +142,24 @@ export default function ClientCard({
             >
               Financial Needs Analysis
             </button>
+            {!isCheckingFNA && hasSavedSummary && (
+              <button
+                onClick={() => router.push(`/fna-summary-view?clientId=${client.id}`)}
+                style={{
+                  width: '100%',
+                  padding: '10px 20px',
+                  backgroundColor: '#28a745',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                }}
+              >
+                ✓ View FNA Summary
+              </button>
+            )}
           </div>
         </div>
       </div>

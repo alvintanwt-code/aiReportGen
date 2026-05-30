@@ -1,11 +1,16 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useMemo, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+import { auth } from '@/lib/firebase';
+import { saveFNASummary } from '@/lib/firebaseUtils';
 
 export default function FNASummaryDashboard({ extractedData, onContinue }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const clientId = searchParams.get('clientId');
+  const [isSaving, setIsSaving] = useState(false);
 
   // Design tokens from project instructions
   const TOKENS = {
@@ -90,6 +95,31 @@ export default function FNASummaryDashboard({ extractedData, onContinue }) {
       scoreOut100, positionInPhase, debtRatio, monthlyIncome, monthlyExpenses, monthlySavings, savingsRate
     };
   }, [extractedData]);
+
+  // Auto-save FNA summary to Firebase
+  useEffect(() => {
+    const autoSave = async () => {
+      if (!auth.currentUser || !clientId || !extractedData) return;
+
+      setIsSaving(true);
+      try {
+        await saveFNASummary(
+          auth.currentUser.uid,
+          clientId,
+          extractedData.personalInfo?.name || 'Client',
+          extractedData,
+          metrics
+        );
+        console.log('✓ FNA Summary auto-saved');
+      } catch (error) {
+        console.error('Failed to auto-save FNA summary:', error);
+      } finally {
+        setIsSaving(false);
+      }
+    };
+
+    autoSave();
+  }, [clientId, extractedData, metrics]);
 
   const formatCurrency = (value) => `S$${Math.round(value).toLocaleString('en-SG')}`;
 
