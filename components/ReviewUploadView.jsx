@@ -1,6 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import {
+  ArrowLeft,
+  Check,
+  X as XIcon,
+  ChevronRight,
+  Plus,
+  Save,
+  Sparkles,
+  AlertTriangle,
+  Pencil,
+} from 'lucide-react';
 import UploadArea from './UploadArea';
 import MultipleHoldingsSets from './MultipleHoldingsSets';
 import ReportDetailsForm from './ReportDetailsForm';
@@ -8,7 +19,6 @@ import { extractPortfolioFromImage, extractPortfolioFromCSV } from '../lib/extra
 import { recalculatePortfolio } from '../lib/portfolioCalculations';
 import { downloadReport, openReportInNewWindow } from '../lib/reportGenerationService';
 
-// UUID generator
 const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
 export default function ReviewUploadView({
@@ -35,73 +45,47 @@ export default function ReviewUploadView({
   const [showReviewNamePrompt, setShowReviewNamePrompt] = useState(!review.reviewName);
   const [showReportForm, setShowReportForm] = useState(false);
 
-  // Update state when review prop changes
   useEffect(() => {
-    console.log('[ReviewUploadView] Review prop changed, updating state:', review.id);
     setHoldingsSets(review.holdingsSets || []);
     setReviewName(review.reviewName || '');
     setIsEditingReviewName(false);
   }, [review.id]);
 
-  // Check if this is a past review (status='extracted' with saved holdings) or new review
-  const isPastReview = review.status === 'extracted' && review.holdingsSets && review.holdingsSets.length > 0;
+  const isPastReview =
+    review.status === 'extracted' && review.holdingsSets && review.holdingsSets.length > 0;
 
-  // Generate suggested review name (e.g., Q1 2026)
-  const getQuarterSuggestion = () => {
-    const now = new Date();
-    const quarter = Math.floor(now.getMonth() / 3) + 1;
-    const year = now.getFullYear();
-    return `Q${quarter} ${year}`;
-  };
-
-  console.log('[ReviewUploadView] Rendered for review:', review.id, 'holdingsSets:', holdingsSets.length);
-
-  // Transition from success state to naming state after delay
   useEffect(() => {
     if (showSuccessState) {
       const timer = setTimeout(() => {
         setShowSuccessState(false);
         setShowNamePrompt(true);
-      }, 2500);
+      }, 2200);
       return () => clearTimeout(timer);
     }
   }, [showSuccessState]);
 
   const handleUpload = async (file) => {
-    console.log('[ReviewUploadView] handleUpload called with file:', file.name);
-
     setIsLoading(true);
     setError('');
-
     try {
-      // Detect file type and call appropriate extraction service
       const isImage = file.type.startsWith('image/');
       const isCsv = file.type === 'text/csv' || file.name.toLowerCase().endsWith('.csv');
 
       let extractedHoldings;
       if (isImage) {
-        console.log('[ReviewUploadView] Extracting from image');
         extractedHoldings = await extractPortfolioFromImage(file);
       } else if (isCsv) {
-        console.log('[ReviewUploadView] Extracting from CSV');
         extractedHoldings = await extractPortfolioFromCSV(file);
       } else {
         throw new Error('Unsupported file type');
       }
 
-      console.log('[ReviewUploadView] Got extracted holdings:', extractedHoldings);
-
-      // Add originalAllocationPercent field to each holding (for tracking rebalancing)
-      const holdingsWithAllocation = extractedHoldings.map(holding => ({
+      const holdingsWithAllocation = extractedHoldings.map((holding) => ({
         ...holding,
         originalAllocationPercent: holding.originalAllocationPercent || null,
       }));
 
-      // Recalculate with initial values
-      const { holdings: recalculatedHoldings, totalPortfolioValueSgd: total } =
-        recalculatePortfolio(holdingsWithAllocation);
-
-      console.log('[ReviewUploadView] Recalculated portfolio, total:', total);
+      const { holdings: recalculatedHoldings } = recalculatePortfolio(holdingsWithAllocation);
 
       setPendingHoldings(recalculatedHoldings);
       setPortfolioName('');
@@ -115,18 +99,13 @@ export default function ReviewUploadView({
   };
 
   const handleAddPortfolio = () => {
-    console.log('[ReviewUploadView] Adding portfolio with name:', portfolioName);
-
     if (!pendingHoldings) {
       setShowErrorState(true);
-      setTimeout(() => {
-        setShowErrorState(false);
-      }, 2800);
+      setTimeout(() => setShowErrorState(false), 2500);
       return;
     }
-
     if (!portfolioName.trim()) {
-      setError('Please enter a portfolio name (e.g., HSBC, AIA)');
+      setError('Please enter a portfolio name (e.g., HSBC, AIA).');
       return;
     }
 
@@ -144,105 +123,68 @@ export default function ReviewUploadView({
     setShowNamePrompt(false);
     setPendingHoldings(null);
     setPortfolioName('');
+    setError('');
   };
 
   const handleHoldingChange = (setId, holdingId, field, newValue) => {
-    console.log('[ReviewUploadView] handleHoldingChange:', { setId, holdingId, field, newValue });
-
-    // Update the specific holdings set
     const updatedSets = holdingsSets.map((set) => {
       if (set.id !== setId) return set;
-
-      // Update the specific holding in this set
       const updatedHoldings = set.holdings.map((h) =>
         h.id === holdingId ? { ...h, [field]: newValue } : h
       );
-
-      // Recalculate this set
       const { holdings: recalculatedHoldings, totalPortfolioValueSgd: total } =
         recalculatePortfolio(updatedHoldings);
-
-      return {
-        ...set,
-        holdings: recalculatedHoldings,
-        totalPortfolioValueSgd: total,
-      };
+      return { ...set, holdings: recalculatedHoldings, totalPortfolioValueSgd: total };
     });
-
     setHoldingsSets(updatedSets);
   };
 
   const handleNameChange = (setId, newName) => {
-    console.log('[ReviewUploadView] handleNameChange:', { setId, newName });
-
-    const updatedSets = holdingsSets.map((set) =>
-      set.id === setId ? { ...set, name: newName } : set
-    );
-
-    setHoldingsSets(updatedSets);
+    setHoldingsSets(holdingsSets.map((set) => (set.id === setId ? { ...set, name: newName } : set)));
   };
 
   const handleDeleteSet = (setId) => {
-    console.log('[ReviewUploadView] handleDeleteSet:', setId);
-
-    const updatedSets = holdingsSets.filter((set) => set.id !== setId);
-    setHoldingsSets(updatedSets);
+    setHoldingsSets(holdingsSets.filter((set) => set.id !== setId));
   };
 
   const handleDeleteHolding = (setId, holdingId) => {
-    console.log('[ReviewUploadView] handleDeleteHolding:', { setId, holdingId });
-
-    // Find the holdings set and remove the holding from it
     const updatedSets = holdingsSets.map((set) => {
       if (set.id !== setId) return set;
-
-      // Remove the holding from this set
       const updatedHoldings = set.holdings.filter((h) => h.id !== holdingId);
-
-      // Recalculate the portfolio with updated holdings
       const { holdings: recalculatedHoldings, totalPortfolioValueSgd: total } =
         recalculatePortfolio(updatedHoldings);
-
-      return {
-        ...set,
-        holdings: recalculatedHoldings,
-        totalPortfolioValueSgd: total,
-      };
+      return { ...set, holdings: recalculatedHoldings, totalPortfolioValueSgd: total };
     });
-
     setHoldingsSets(updatedSets);
   };
 
   const handleSave = () => {
-    console.log('[ReviewUploadView] Saving all holdings sets, count:', holdingsSets.length);
-
     if (holdingsSets.length === 0) {
-      setError('Please upload at least one portfolio before saving');
+      setError('Please upload at least one portfolio before saving.');
       return;
     }
-
     onSaveHoldings(holdingsSets, reviewName);
   };
 
   const validateAllocationBeforeReport = () => {
-    // Check allocation status across all holdings sets
     for (const set of holdingsSets) {
       if (!set.holdings || set.holdings.length === 0) continue;
+      const allocations = set.holdings
+        .map((h) => h.originalAllocationPercent)
+        .filter((a) => a !== null && a !== undefined && a !== '');
 
-      const allocations = set.holdings.map(h => h.originalAllocationPercent).filter(a => a !== null && a !== undefined && a !== '');
-
-      // If some allocations are filled, check if all are filled and sum to 100%
       if (allocations.length > 0 && allocations.length < set.holdings.length) {
-        // Partially filled - not allowed
-        setError(`${set.name}: Original Allocation is partially filled. Either fill all values to sum to 100%, or leave all blank.`);
+        setError(
+          `${set.name}: Original Allocation is partially filled. Either fill all values to sum to 100%, or leave all blank.`
+        );
         return false;
       }
-
       if (allocations.length === set.holdings.length) {
-        // All filled, check if sums to 100%
         const total = allocations.reduce((sum, a) => sum + (parseFloat(a) || 0), 0);
         if (Math.abs(total - 100) > 0.01) {
-          setError(`${set.name}: Original Allocation must sum to 100% (currently ${total.toFixed(2)}%)`);
+          setError(
+            `${set.name}: Original Allocation must sum to 100% (currently ${total.toFixed(2)}%).`
+          );
           return false;
         }
       }
@@ -251,759 +193,316 @@ export default function ReviewUploadView({
   };
 
   const handleGenerateReportClick = () => {
-    console.log('[ReviewUploadView] Generate Report clicked, validating allocation');
-
-    if (!validateAllocationBeforeReport()) {
-      return;
-    }
-
-    console.log('[ReviewUploadView] Validation passed, opening form');
+    if (!validateAllocationBeforeReport()) return;
     setShowReportForm(true);
   };
 
-  const handleReportFormCancel = () => {
-    console.log('[ReviewUploadView] Report form cancelled');
-    setShowReportForm(false);
-  };
+  const handleReportFormCancel = () => setShowReportForm(false);
 
   const handleReportGenerated = (reportData) => {
-    console.log('[ReviewUploadView] Report generated with data:', reportData);
-    console.log('[ReviewUploadView] holdingsSets structure:', holdingsSets);
-    console.log('[ReviewUploadView] reportData.accounts:', reportData.accounts);
-    console.log('[ReviewUploadView] reportData.performance:', reportData.performance);
-
     try {
-      // Open report in new window for preview/printing
       openReportInNewWindow(reportData, holdingsSets);
-
-      // Also trigger download
-      setTimeout(() => {
-        downloadReport(reportData, holdingsSets);
-      }, 500);
-
+      setTimeout(() => downloadReport(reportData, holdingsSets), 500);
       setShowReportForm(false);
-      setError(''); // Clear any previous errors
+      setError('');
     } catch (err) {
       console.error('[ReviewUploadView] Error generating report:', err);
-      console.error('[ReviewUploadView] Error stack:', err.stack);
       setError(`Failed to generate report: ${err.message}`);
     }
   };
 
-  // Get all reviews for this client (sorted by creation date descending, latest first)
   const getAllReviewsForClient = () => {
     const clientReviews = reviews.filter(
       (r) => r.clientId === selectedClientId && r.status === 'extracted'
     );
-    // Sort by creation date descending (most recent first)
     return clientReviews.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   };
 
   const allReviews = getAllReviewsForClient();
+  const showRail = isPastReview && allReviews.length > 0;
+
+  const commitReviewName = () => {
+    onUpdateReviewName(reviewName);
+    setIsEditingReviewName(false);
+  };
+
+  const handleReviewNamePromptContinue = () => {
+    if (reviewName.trim()) {
+      onUpdateReviewName(reviewName);
+      setShowReviewNamePrompt(false);
+    }
+  };
 
   return (
-    <div className="gradient-northern-lights" style={{ minHeight: '100vh', padding: '40px 24px' }}>
-      <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-        {/* Back Button (Top Navigation) */}
-        <div style={{ marginBottom: '40px' }}>
-          <button
-            onClick={onBack}
-            style={{
-              padding: '10px 20px',
-              backgroundColor: '#FFA366',
-              color: 'white',
-              border: 'none',
-              borderRadius: '45px',
-              cursor: 'pointer',
-              marginBottom: '24px',
-              fontSize: '14px',
-              fontWeight: '400',
-              transition: 'background-color 0.2s ease',
-              boxShadow: 'none',
-              display: 'inline-block',
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.backgroundColor = '#FF8F44';
-              e.target.style.boxShadow = 'none';
-              e.target.style.transform = 'none';
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.backgroundColor = '#FFA366';
-              e.target.style.boxShadow = 'none';
-              e.target.style.transform = 'none';
-            }}
-          >
-            ← Back
+    <div className="dash-root dash-upload">
+      <header className="dash-upload-header">
+        <div className="dash-upload-header-left">
+          <button className="dash-back" onClick={onBack}>
+            <ArrowLeft size={14} strokeWidth={2.2} />
+            Back
           </button>
+          <div className="dash-crumbs">
+            <span className="dash-crumb">{clientName}</span>
+            <ChevronRight size={14} className="dash-crumb-sep" />
+            <span className="dash-crumb dash-crumb-current">
+              {reviewName || 'New review'}
+            </span>
+          </div>
         </div>
-
-        {/* Main Content Area: Sidebar + Content */}
-        <div style={{ display: 'flex', gap: '30px' }}>
-          {/* Left Sidebar - Only show when viewing past reviews */}
-          {isPastReview && (
-            <div
-              style={{
-                width: '220px',
-                flexShrink: 0,
-              }}
-            >
-              <div
-                style={{
-                  padding: '20px',
-                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                  borderRadius: '8px',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
+        <div className="dash-topbar-right">
+          {holdingsSets.length > 0 && !showNamePrompt && (
+            <>
+              <button
+                className="dash-btn dash-btn-ghost"
+                onClick={() => {
+                  setShowNamePrompt(true);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                  setTimeout(() => {
+                    setShouldFlashUpload(true);
+                    setTimeout(() => setShouldFlashUpload(false), 700);
+                  }, 500);
                 }}
               >
-                <h4
-                  style={{
-                    margin: '0 0 20px 0',
-                    fontSize: '11px',
-                    fontWeight: '600',
-                    color: '#999',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
+                <Plus size={14} strokeWidth={2.4} />
+                Upload another
+              </button>
+              <button className="dash-btn dash-btn-ghost" onClick={handleSave}>
+                <Save size={14} strokeWidth={2.2} />
+                Save
+              </button>
+              <button className="dash-btn dash-btn-generate" onClick={handleGenerateReportClick}>
+                <Sparkles size={14} strokeWidth={2.2} />
+                Generate report
+              </button>
+            </>
+          )}
+        </div>
+      </header>
+
+      <div className={`dash-upload-body ${showRail ? '' : 'no-rail'}`}>
+        {showRail && (
+          <aside className="dash-rail" aria-label="All reviews">
+            <div className="dash-rail-title">Reviews</div>
+            {allReviews.map((item) => {
+              const isActive = review.id === item.id;
+              return (
+                <button
+                  key={item.id}
+                  className={`dash-rail-item ${isActive ? 'is-active' : ''}`}
+                  onClick={() => onSelectReview(item.id)}
+                >
+                  {isActive && <span className="dash-rail-item-dot" />}
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {item.reviewName || 'Untitled review'}
+                  </span>
+                </button>
+              );
+            })}
+          </aside>
+        )}
+
+        <main>
+          {!showReviewNamePrompt && (
+            <div className="dash-title-row">
+              {!isEditingReviewName ? (
+                <div
+                  className="dash-title-edit"
+                  onClick={() => setIsEditingReviewName(true)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setIsEditingReviewName(true);
+                    }
                   }}
                 >
-                  Reviews
-                </h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {/* All reviews in order (latest first), with current one bolded */}
-                  {allReviews.map((reviewItem) => (
-                    <button
-                      key={reviewItem.id}
-                      onClick={() => {
-                        console.log('[ReviewUploadView] Switching to review:', reviewItem.id);
-                        onSelectReview(reviewItem.id);
-                      }}
-                      style={{
-                        padding: '12px 16px',
-                        backgroundColor: review.id === reviewItem.id ? 'rgba(255, 163, 102, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-                        color: review.id === reviewItem.id ? '#FF8F44' : '#1a1a1a',
-                        border: review.id === reviewItem.id ? '1px solid rgba(255, 163, 102, 0.4)' : '1px solid rgba(255, 255, 255, 0.1)',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        fontSize: '13px',
-                        fontWeight: review.id === reviewItem.id ? '700' : '500',
-                        textAlign: 'left',
-                        transition: 'all 0.2s ease',
-                        fontFamily: "'Poppins', sans-serif",
-                        wordBreak: 'break-word',
-                        whiteSpace: 'normal',
-                        boxShadow: 'none',
-                      }}
-                      onMouseEnter={(e) => {
-                        if (review.id !== reviewItem.id) {
-                          e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
-                          e.target.style.boxShadow = 'none';
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (review.id !== reviewItem.id) {
-                          e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
-                          e.target.style.boxShadow = 'none';
-                        }
-                      }}
-                    >
-                      {reviewItem.reviewName}
-                    </button>
-                  ))}
+                  <span>{reviewName || 'Untitled review'}</span>
+                  <Pencil
+                    size={14}
+                    strokeWidth={2}
+                    style={{ marginLeft: 8, color: 'var(--subtle)' }}
+                  />
                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* Right Content Area */}
-          <div style={{ flex: 1 }}>
-            {/* Review Name - Show only for past reviews or after naming new reviews */}
-            {!showReviewNamePrompt && (
-              <>
-                {!isEditingReviewName ? (
-                  <h2
-                    onClick={() => setIsEditingReviewName(true)}
-                    style={{
-                      margin: '0 0 30px 0',
-                      padding: '0',
-                      fontSize: '32px',
-                      fontWeight: '600',
-                      color: '#1a1a1a',
-                      letterSpacing: '-0.5px',
-                      fontFamily: "'Albra', sans-serif",
-                      cursor: 'pointer',
-                      transition: 'opacity 0.2s ease',
-                      lineHeight: '1.2',
-                      minHeight: '44px',
-                      display: 'flex',
-                      alignItems: 'center',
-                    }}
-                    onMouseEnter={(e) => (e.target.style.opacity = '0.7')}
-                    onMouseLeave={(e) => (e.target.style.opacity = '1')}
-                  >
-                    {reviewName}
-                  </h2>
-                ) : (
+              ) : (
+                <div
+                  className="dash-title-edit"
+                  style={{ background: 'var(--slate-100)', borderColor: 'var(--accent-500)', boxShadow: 'var(--ring)' }}
+                >
                   <input
                     type="text"
                     value={reviewName}
                     onChange={(e) => setReviewName(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        console.log('[ReviewUploadView] Saving review name on Enter:', reviewName);
-                        onUpdateReviewName(reviewName);
-                        setIsEditingReviewName(false);
-                      }
+                      if (e.key === 'Enter') commitReviewName();
+                      if (e.key === 'Escape') setIsEditingReviewName(false);
                     }}
-                    onBlur={(e) => {
-                      console.log('[ReviewUploadView] Saving review name on blur:', reviewName);
-                      onUpdateReviewName(reviewName);
-                      setIsEditingReviewName(false);
-                    }}
+                    onBlur={commitReviewName}
                     autoFocus
-                    placeholder="Review Name e.g. Q1 2026"
-                    style={{
-                      display: 'block',
-                      marginBottom: '30px',
-                      padding: '8px 18px',
-                      fontSize: '32px',
-                      fontWeight: '600',
-                      border: '1px solid rgba(255, 255, 255, 0.8)',
-                      backgroundColor: 'rgba(255, 255, 255, 0.4)',
-                      color: '#1a1a1a',
-                      outline: 'none',
-                      fontFamily: "'Albra', sans-serif",
-                      letterSpacing: '-0.5px',
-                      borderRadius: '45px',
-                      width: 'auto',
-                      minWidth: '300px',
-                      maxWidth: '100%',
-                      boxSizing: 'border-box',
-                      transition: 'all 0.2s ease',
-                      lineHeight: '1.2',
-                      height: '44px',
-                    }}
-                    onFocus={(e) => {
-                      e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.6)';
-                      e.target.style.borderColor = 'rgba(255, 255, 255, 1)';
-                    }}
+                    placeholder="e.g., Q1 2026"
                   />
-                )}
-              </>
-            )}
+                </div>
+              )}
+            </div>
+          )}
 
-            {/* Review Name Prompt - Only show for new reviews without a name */}
-            {showReviewNamePrompt && (
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: '40px',
-                  marginTop: '60px',
-                  animation: 'slideInUp 0.6s ease-out',
+          {!showReviewNamePrompt && (
+            <p className="dash-section-sub">
+              {isPastReview
+                ? 'Edit holdings or generate a report from saved portfolios.'
+                : 'Upload portfolio screenshots or CSV statements to extract holdings.'}
+            </p>
+          )}
+
+          {showReviewNamePrompt && (
+            <div className="dash-prompt">
+              <span className="dash-prompt-eyebrow">Step 1 of 2</span>
+              <h3>What would you like to name this review?</h3>
+              <input
+                type="text"
+                className="dash-input dash-input-lg dash-prompt-input"
+                placeholder="e.g., Q1 2026"
+                value={reviewName}
+                onChange={(e) => setReviewName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && reviewName.trim()) handleReviewNamePromptContinue();
                 }}
-              >
-                <p
-                  style={{
-                    fontSize: '16px',
-                    color: '#1a1a1a',
-                    marginBottom: '24px',
-                    textAlign: 'center',
-                    maxWidth: '500px',
-                    fontWeight: '400',
-                    lineHeight: '1.6',
-                    fontFamily: "'Poppins', sans-serif",
-                  }}
-                >
-                  What would you like to name this review?
-                </p>
-
-                <input
-                  type="text"
-                  value={reviewName}
-                  onChange={(e) => setReviewName(e.target.value)}
-                  placeholder="e.g., Q1 2026, Portfolio Review"
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && reviewName.trim()) {
-                      console.log('[ReviewUploadView] Setting review name:', reviewName);
-                      onUpdateReviewName(reviewName);
-                      setShowReviewNamePrompt(false);
-                    }
-                  }}
-                  style={{
-                    width: '100%',
-                    maxWidth: '400px',
-                    padding: '12px 18px',
-                    border: '1px solid rgba(255, 255, 255, 0.8)',
-                    backgroundColor: 'rgba(255, 255, 255, 0.5)',
-                    borderRadius: '45px',
-                    fontSize: '16px',
-                    boxSizing: 'border-box',
-                    outline: 'none',
-                    color: '#1a1a1a',
-                    fontFamily: "'Poppins', sans-serif",
-                    marginBottom: '20px',
-                    transition: 'all 0.2s ease',
-                  }}
-                  onFocus={(e) => {
-                    e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.7)';
-                    e.target.style.borderColor = 'rgba(255, 255, 255, 1)';
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.5)';
-                    e.target.style.borderColor = 'rgba(255, 255, 255, 0.8)';
-                  }}
-                />
-
+                autoFocus
+              />
+              <div className="dash-prompt-actions">
                 <button
-                  onClick={() => {
-                    if (reviewName.trim()) {
-                      console.log('[ReviewUploadView] Setting review name:', reviewName);
-                      onUpdateReviewName(reviewName);
-                      setShowReviewNamePrompt(false);
-                    }
-                  }}
-                  style={{
-                    padding: '10px 24px',
-                    backgroundColor: '#FFA366',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '45px',
-                    cursor: reviewName.trim() ? 'pointer' : 'not-allowed',
-                    fontSize: '14px',
-                    fontWeight: '400',
-                    transition: 'background-color 0.2s ease',
-                    fontFamily: "'Poppins', sans-serif",
-                    opacity: reviewName.trim() ? 1 : 0.5,
-                  }}
-                  onMouseEnter={(e) => {
-                    if (reviewName.trim()) {
-                      e.target.style.backgroundColor = '#FF8F44';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (reviewName.trim()) {
-                      e.target.style.backgroundColor = '#FFA366';
-                    }
-                  }}
+                  className="dash-btn dash-btn-primary"
+                  onClick={handleReviewNamePromptContinue}
+                  disabled={!reviewName.trim()}
+                  style={!reviewName.trim() ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
                 >
                   Continue
+                  <ChevronRight size={14} strokeWidth={2.4} />
                 </button>
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Upload Area - Show for all reviews */}
+          {!showReviewNamePrompt && (
             <UploadArea onUpload={handleUpload} isLoading={isLoading} shouldFlash={shouldFlashUpload} />
+          )}
 
-            {/* Success Celebration State */}
-            {showSuccessState && (
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: '40px',
-                  marginTop: '60px',
+          {showSuccessState && (
+            <div className="dash-status">
+              <div className="dash-status-icon is-success">
+                <Check size={28} strokeWidth={2.6} />
+              </div>
+              <div className="dash-status-title">Holdings extracted successfully</div>
+              <div className="dash-section-sub" style={{ marginBottom: 0 }}>
+                Next, give this portfolio a name so you can identify it later.
+              </div>
+            </div>
+          )}
+
+          {showErrorState && (
+            <div className="dash-status">
+              <div className="dash-status-icon is-error">
+                <XIcon size={28} strokeWidth={2.6} />
+              </div>
+              <div className="dash-status-title">No file detected</div>
+              <div className="dash-section-sub" style={{ marginBottom: 0 }}>
+                Upload a portfolio screenshot or CSV statement to continue.
+              </div>
+            </div>
+          )}
+
+          {showNamePrompt && (
+            <div className="dash-prompt">
+              <span className="dash-prompt-eyebrow">Portfolio {holdingsSets.length + 1}</span>
+              <h3>What would you like to name this portfolio?</h3>
+              <input
+                type="text"
+                className="dash-input dash-input-lg dash-prompt-input"
+                placeholder="e.g., HSBC Wealth Accelerate, FAME Advisory, TMGA"
+                value={portfolioName}
+                onChange={(e) => setPortfolioName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleAddPortfolio();
                 }}
-              >
-                {/* Checkmark Icon */}
-                <div
-                  style={{
-                    fontSize: '92px',
-                    marginBottom: '8px',
-                    animation: 'checkmarkGrow 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                    color: '#FFA366',
-                  }}
-                >
-                  ✓
+                autoFocus
+              />
+              {error && (
+                <div className="dash-banner dash-banner-danger" role="alert" style={{ width: '100%', maxWidth: 360 }}>
+                  <span className="dash-banner-icon">
+                    <AlertTriangle size={14} strokeWidth={2.2} />
+                  </span>
+                  <span>{error}</span>
                 </div>
-
-                {/* Success Message */}
-                <h2
-                  style={{
-                    fontSize: '20px',
-                    fontWeight: '600',
-                    color: '#FFA366',
-                    marginBottom: '40px',
-                    textAlign: 'center',
-                    fontFamily: "'Poppins', sans-serif",
-                    animation: 'fadeInUp 0.8s ease-out 0.3s both',
+              )}
+              <div className="dash-prompt-actions">
+                <button
+                  className="dash-btn dash-btn-ghost"
+                  onClick={() => {
+                    setShowNamePrompt(false);
+                    setPendingHoldings(null);
+                    setPortfolioName('');
+                    setError('');
                   }}
                 >
-                  Portfolio uploaded successfully!
-                </h2>
+                  Cancel
+                </button>
+                <button className="dash-btn dash-btn-primary" onClick={handleAddPortfolio}>
+                  <Plus size={14} strokeWidth={2.4} />
+                  Add portfolio
+                </button>
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Error State - No File Detected */}
-            {showErrorState && (
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: '40px',
-                  marginTop: '60px',
-                }}
-              >
-                {/* X Icon */}
-                <div
-                  style={{
-                    fontSize: '92px',
-                    marginBottom: '8px',
-                    animation: 'errorXGrow 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                    color: '#dc3545',
-                    boxShadow: 'none',
-                  }}
-                >
-                  ✕
-                </div>
-
-                {/* Error Message */}
-                <h2
-                  style={{
-                    fontSize: '20px',
-                    fontWeight: '600',
-                    color: '#dc3545',
-                    marginBottom: '40px',
-                    textAlign: 'center',
-                    fontFamily: "'Poppins', sans-serif",
-                    animation: 'fadeInUp 0.8s ease-out 0.3s both',
-                    lineHeight: '1.4',
-                  }}
-                >
-                  No file detected<br />please upload again
-                </h2>
+          {holdingsSets.length > 0 && !showNamePrompt && (
+            <>
+              <div className="dash-banner dash-banner-info" style={{ marginBottom: 16 }}>
+                <span className="dash-banner-icon">
+                  <Check size={15} strokeWidth={2.4} />
+                </span>
+                <span>
+                  {holdingsSets.length} portfolio{holdingsSets.length === 1 ? '' : 's'} loaded. Edits below recalculate automatically.
+                </span>
               </div>
-            )}
 
-            {/* Name Prompt for New Portfolio */}
-            {showNamePrompt && (
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: '40px',
-                  marginTop: '40px',
-                  animation: 'slideInUp 0.6s ease-out',
-                }}
-              >
-                {/* Progress Counter */}
-                <p
-                  style={{
-                    fontSize: '14px',
-                    color: '#666',
-                    marginBottom: '20px',
-                    textAlign: 'center',
-                    fontFamily: "'Poppins', sans-serif",
-                    fontWeight: '400',
-                  }}
-                >
-                  Portfolio {holdingsSets.length + 1}
-                </p>
+              <MultipleHoldingsSets
+                holdingsSets={holdingsSets}
+                onNameChange={handleNameChange}
+                onHoldingChange={handleHoldingChange}
+                onDeleteSet={handleDeleteSet}
+                onHoldingDelete={handleDeleteHolding}
+              />
 
-                {/* Message */}
-                <p
-                  style={{
-                    fontSize: '16px',
-                    color: '#1a1a1a',
-                    marginBottom: '24px',
-                    textAlign: 'center',
-                    maxWidth: '500px',
-                    fontWeight: '400',
-                    lineHeight: '1.6',
-                    fontFamily: "'Poppins', sans-serif",
-                  }}
-                >
-                  What would you like to name this portfolio?
-                </p>
-
-                {/* Text Input Field */}
-                <input
-                  type="text"
-                  value={portfolioName}
-                  onChange={(e) => setPortfolioName(e.target.value)}
-                  placeholder="e.g., HSBC Wealth Accelerate, FAME Advisory, TMGA"
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleAddPortfolio();
-                  }}
-                  onFocus={(e) => {
-                    e.target.placeholder = '';
-                    e.target.style.animation = 'none';
-                  }}
-                  onBlur={(e) => {
-                    if (!e.target.value) {
-                      e.target.placeholder = 'e.g., HSBC Wealth Accelerate, FAME Advisory, TMGA';
-                      e.target.style.animation = 'inputPulse 2s ease-in-out infinite';
-                    }
-                  }}
-                  style={{
-                    width: '100%',
-                    maxWidth: '400px',
-                    padding: '14px 24px',
-                    border: '1px solid rgba(255, 255, 255, 0.8)',
-                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                    backdropFilter: 'blur(20px)',
-                    borderRadius: '45px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                    outline: 'none',
-                    color: '#1a1a1a',
-                    fontFamily: "'Poppins', sans-serif",
-                    marginBottom: '20px',
-                    transition: 'all 0.2s ease',
-                    animation: 'inputPulse 2s ease-in-out infinite',
-                  }}
-                />
-
-                {/* Action Buttons */}
-                <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-                  <button
-                    onClick={handleAddPortfolio}
-                    style={{
-                      padding: '10px 24px',
-                      backgroundColor: '#FFA366',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '45px',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      fontWeight: '400',
-                      transition: 'background-color 0.2s ease',
-                      fontFamily: "'Poppins', sans-serif",
-                    }}
-                    onMouseEnter={(e) => e.target.style.backgroundColor = '#FF8F44'}
-                    onMouseLeave={(e) => e.target.style.backgroundColor = '#FFA366'}
-                  >
-                    Add Portfolio
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowNamePrompt(false);
-                      setPendingHoldings(null);
-                    }}
-                    style={{
-                      padding: '10px 24px',
-                      backgroundColor: 'rgba(192, 57, 43, 0.2)',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '45px',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      fontWeight: '400',
-                      transition: 'background-color 0.2s ease',
-                      fontFamily: "'Poppins', sans-serif",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = 'rgba(192, 57, 43, 0.35)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'rgba(192, 57, 43, 0.2)';
-                    }}
-                  >
-                    Cancel
-                  </button>
+              {error && !showNamePrompt && (
+                <div className="dash-banner dash-banner-danger" style={{ marginTop: 16 }} role="alert">
+                  <span className="dash-banner-icon">
+                    <AlertTriangle size={15} strokeWidth={2.2} />
+                  </span>
+                  <span>{error}</span>
                 </div>
-              </div>
-            )}
+              )}
+            </>
+          )}
+        </main>
+      </div>
 
-            {/* Multiple Holdings Sets */}
-            {holdingsSets.length > 0 && !showNamePrompt && (
-              <div style={{ marginBottom: '20px' }}>
-                <div
-                  style={{
-                    marginBottom: '15px',
-                    padding: '15px',
-                    backgroundColor: 'rgba(255, 163, 102, 0.15)',
-                    color: '#444',
-                    borderRadius: '8px',
-                    fontFamily: "'Poppins', sans-serif",
-                  }}
-                >
-                  ✓ {holdingsSets.length} portfolio(ies) added. Edit any field below. Changes calculate automatically.
-                </div>
-
-                <MultipleHoldingsSets
-                  holdingsSets={holdingsSets}
-                  onNameChange={handleNameChange}
-                  onHoldingChange={handleHoldingChange}
-                  onDeleteSet={handleDeleteSet}
-                  onHoldingDelete={handleDeleteHolding}
-                />
-
-                {/* Allocation Validation Error - Shown below holdings table */}
-                {error && (
-                  <div
-                    style={{
-                      marginTop: '20px',
-                      padding: '15px',
-                      backgroundColor: '#f8d7da',
-                      color: '#721c24',
-                      borderRadius: '4px',
-                      border: '1px solid #f5c6cb',
-                      fontSize: '14px',
-                    }}
-                  >
-                    ⚠️ {error}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Action Buttons */}
-            {holdingsSets.length > 0 && !showNamePrompt && (
-              <>
-                <style>{`
-                  @keyframes sparkle-float {
-                    0%, 100% { transform: translateY(0px); opacity: 1; }
-                    50% { transform: translateY(-3px); }
-                  }
-                  .sparkle-icon {
-                    display: inline-block;
-                    animation: sparkle-float 2s ease-in-out infinite;
-                    margin-right: 6px;
-                  }
-                `}</style>
-                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
-                  <button
-                    onClick={() => {
-                      setShowNamePrompt(true);
-                      // Scroll to top smoothly
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                      // Trigger flash after scroll completes
-                      setTimeout(() => {
-                        setShouldFlashUpload(true);
-                        // Reset flash state after animation completes
-                        setTimeout(() => {
-                          setShouldFlashUpload(false);
-                        }, 700);
-                      }, 500);
-                    }}
-                    style={{
-                      padding: '10px 24px',
-                      backgroundColor: '#8a9aaa',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '45px',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      fontWeight: '400',
-                      transition: 'background-color 0.2s ease',
-                      fontFamily: "'Poppins', sans-serif",
-                      boxShadow: 'none',
-                    }}
-                    onMouseEnter={(e) => e.target.style.backgroundColor = '#7a8a9a'}
-                    onMouseLeave={(e) => e.target.style.backgroundColor = '#8a9aaa'}
-                  >
-                    Upload Another
-                  </button>
-                  <button
-                    onClick={handleSave}
-                    style={{
-                      padding: '10px 24px',
-                      backgroundColor: '#FFA366',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '45px',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      fontWeight: '400',
-                      transition: 'background-color 0.2s ease',
-                      fontFamily: "'Poppins', sans-serif",
-                      boxShadow: 'none',
-                    }}
-                    onMouseEnter={(e) => e.target.style.backgroundColor = '#FF8F44'}
-                    onMouseLeave={(e) => e.target.style.backgroundColor = '#FFA366'}
-                  >
-                    Save All Portfolios
-                  </button>
-                  <button
-                    onClick={handleGenerateReportClick}
-                    style={{
-                      padding: '10px 24px',
-                      backgroundColor: '#9b59b6',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '45px',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      fontWeight: '400',
-                      transition: 'background-color 0.2s ease, transform 0.2s ease',
-                      fontFamily: "'Poppins', sans-serif",
-                      boxShadow: 'none',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.backgroundColor = '#8e44ad';
-                      e.target.style.transform = 'scale(1.05)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.backgroundColor = '#9b59b6';
-                      e.target.style.transform = 'scale(1)';
-                    }}
-                  >
-                    <span className="sparkle-icon">✨</span>
-                    Generate Report
-                  </button>
-                </div>
-              </>
-            )}
+      {showReportForm && (
+        <div
+          className="dash-modal"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) handleReportFormCancel();
+          }}
+        >
+          <div className="dash-modal-card">
+            <ReportDetailsForm
+              clientName={clientName}
+              holdingsSets={holdingsSets}
+              onGenerateReport={handleReportGenerated}
+              onCancel={handleReportFormCancel}
+            />
           </div>
         </div>
-
-        {/* Report Details Form Modal */}
-        {showReportForm && (
-          <div
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: 'rgba(0, 0, 0, 0.5)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 1000,
-              padding: '20px',
-              overflow: 'auto',
-            }}
-            onClick={(e) => {
-              // Close modal if clicking on backdrop
-              if (e.target === e.currentTarget) {
-                handleReportFormCancel();
-              }
-            }}
-          >
-            <div
-              style={{
-                backgroundColor: 'white',
-                borderRadius: '12px',
-                maxWidth: '900px',
-                width: '100%',
-                maxHeight: '90vh',
-                overflow: 'auto',
-                boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
-              }}
-            >
-              <ReportDetailsForm
-                clientName={clientName}
-                holdingsSets={holdingsSets}
-                onGenerateReport={handleReportGenerated}
-                onCancel={handleReportFormCancel}
-              />
-            </div>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }

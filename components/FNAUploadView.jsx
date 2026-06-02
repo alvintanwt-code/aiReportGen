@@ -2,7 +2,46 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { ArrowLeft, Sparkles, Check, X as XIcon, AlertCircle, FileImage } from 'lucide-react';
 import FNAUploadArea from './FNAUploadArea';
+
+/**
+ * Client-side image downsize before upload.
+ *
+ * Anthropic's vision endpoint auto-resizes any image with a long edge above
+ * ~1568px, so sending high-res screenshots costs upload bandwidth + Vercel
+ * body-size quota without giving the model more pixels to look at. We pre-empt
+ * that here: anything bigger than `maxEdge` gets canvas-resized and re-encoded
+ * as quality-0.88 JPEG. Smaller images pass through untouched; non-images and
+ * any failure fall back to the original file.
+ */
+async function downsizeImage(file, maxEdge = 1600) {
+  if (!file || !file.type || !file.type.startsWith('image/')) return file;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const longEdge = Math.max(bitmap.width, bitmap.height);
+    if (longEdge <= maxEdge) {
+      bitmap.close?.();
+      return file;
+    }
+    const scale = maxEdge / longEdge;
+    const w = Math.round(bitmap.width * scale);
+    const h = Math.round(bitmap.height * scale);
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(bitmap, 0, 0, w, h);
+    bitmap.close?.();
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.88));
+    if (!blob) return file;
+    const newName = file.name.replace(/\.\w+$/, '') + '.jpg';
+    return new File([blob], newName, { type: 'image/jpeg', lastModified: Date.now() });
+  } catch (err) {
+    console.warn('[downsizeImage] fell back to original:', err);
+    return file;
+  }
+}
 
 export default function FNAUploadView({ clientId, clientName, onUploadComplete }) {
   const [uploadedFiles, setUploadedFiles] = useState([]);
@@ -10,25 +49,6 @@ export default function FNAUploadView({ clientId, clientName, onUploadComplete }
   const [isComplete, setIsComplete] = useState(false);
   const [extractionError, setExtractionError] = useState('');
   const router = useRouter();
-
-  // Design tokens from project instructions
-  const TOKENS = {
-    bg: '#f6f8fa',
-    surface: '#ffffff',
-    surface2: '#f9fafb',
-    border: '#e5e7eb',
-    borderSoft: '#f0f2f4',
-    inkPrimary: '#0f172a',
-    inkSecondary: '#475569',
-    inkTertiary: '#94a3b8',
-    inkMuted: '#cbd5e1',
-    brand: '#635bff',
-    positive: '#10b981',
-    warning: '#f59e0b',
-    negative: '#ef4444',
-    shadowSm: '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)',
-    shadowMd: '0 4px 12px rgba(0,0,0,0.06), 0 2px 4px rgba(0,0,0,0.04)',
-  };
 
   const handleFilesSelected = (files) => {
     setUploadedFiles([...uploadedFiles, ...Array.from(files)]);
@@ -41,16 +61,18 @@ export default function FNAUploadView({ clientId, clientName, onUploadComplete }
 
   const handleExtract = async () => {
     if (uploadedFiles.length === 0) {
-      setExtractionError('Please upload at least 1 screenshot');
+      setExtractionError('Please upload at least one screenshot.');
       return;
     }
-
     setIsExtracting(true);
     setExtractionError('');
 
     try {
+      // Downsize all images in parallel before building the upload body.
+      const resizedFiles = await Promise.all(uploadedFiles.map((f) => downsizeImage(f)));
+
       const formData = new FormData();
-      uploadedFiles.forEach((file, index) => {
+      resizedFiles.forEach((file, index) => {
         formData.append(`screenshot${index + 1}`, file);
       });
       formData.append('clientId', clientId);
@@ -69,14 +91,11 @@ export default function FNAUploadView({ clientId, clientName, onUploadComplete }
 
       setIsComplete(true);
       sessionStorage.setItem(`fna_${clientId}`, JSON.stringify(responseData));
-
-      if (onUploadComplete) {
-        onUploadComplete(responseData);
-      }
+      if (onUploadComplete) onUploadComplete(responseData);
 
       setTimeout(() => {
         router.push(`/fna-summary?clientId=${clientId}`);
-      }, 1500);
+      }, 1400);
     } catch (error) {
       console.error('Extraction error:', error);
       setExtractionError(error.message || 'Failed to extract data. Please try again.');
@@ -86,37 +105,13 @@ export default function FNAUploadView({ clientId, clientName, onUploadComplete }
 
   if (isExtracting && !isComplete) {
     return (
-      <div style={{ backgroundColor: TOKENS.bg, minHeight: '100vh', fontFamily: 'Inter, -apple-system, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <style>{`
-          @import url('https://rsms.me/inter/inter.css');
-          body { background-color: ${TOKENS.bg}; margin: 0; }
-          * { box-sizing: border-box; }
-          @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-          }
-          .loading-pulse { animation: pulse 2s ease-in-out infinite; }
-        `}</style>
-
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '64px', marginBottom: '32px' }} className="loading-pulse">⚡</div>
-          <h2 style={{
-            fontSize: '26px',
-            fontWeight: '700',
-            color: TOKENS.inkPrimary,
-            margin: '0 0 12px 0',
-            letterSpacing: '-0.02em'
-          }}>
-            Analyzing your data
-          </h2>
-          <p style={{
-            fontSize: '13px',
-            color: TOKENS.inkSecondary,
-            margin: '0',
-            lineHeight: '1.65'
-          }}>
-            This will take a moment. Processing your financial information...
-          </p>
+      <div className="dash-root" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh' }}>
+        <div className="dash-status">
+          <div className="dash-spinner" style={{ width: 36, height: 36, borderWidth: 3 }} />
+          <div className="dash-status-title">Analysing your data</div>
+          <div className="dash-section-sub" style={{ marginBottom: 0 }}>
+            Processing your financial information. This usually takes a moment.
+          </div>
         </div>
       </div>
     );
@@ -124,246 +119,126 @@ export default function FNAUploadView({ clientId, clientName, onUploadComplete }
 
   if (isComplete) {
     return (
-      <div style={{ backgroundColor: TOKENS.bg, minHeight: '100vh', fontFamily: 'Inter, -apple-system, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <style>{`
-          @import url('https://rsms.me/inter/inter.css');
-          body { background-color: ${TOKENS.bg}; margin: 0; }
-          * { box-sizing: border-box; }
-          @keyframes slideInUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-          }
-          .slide-in { animation: slideInUp 0.4s ease-out; }
-        `}</style>
-
-        <div style={{ textAlign: 'center' }} className="slide-in">
-          <div style={{ fontSize: '64px', marginBottom: '24px' }}>✓</div>
-          <h2 style={{
-            fontSize: '26px',
-            fontWeight: '700',
-            color: TOKENS.positive,
-            margin: '0 0 8px 0',
-            letterSpacing: '-0.02em'
-          }}>
-            Analysis complete
-          </h2>
-          <p style={{
-            fontSize: '13px',
-            color: TOKENS.inkSecondary,
-            margin: '0',
-            lineHeight: '1.65'
-          }}>
-            Preparing your financial summary...
-          </p>
+      <div className="dash-root" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh' }}>
+        <div className="dash-status">
+          <div className="dash-status-icon is-success">
+            <Check size={28} strokeWidth={2.6} />
+          </div>
+          <div className="dash-status-title">Analysis complete</div>
+          <div className="dash-section-sub" style={{ marginBottom: 0 }}>
+            Preparing your financial summary…
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={{ backgroundColor: TOKENS.bg, minHeight: '100vh', fontFamily: 'Inter, -apple-system, sans-serif' }}>
-      <style>{`
-        @import url('https://rsms.me/inter/inter.css');
-        body { background-color: ${TOKENS.bg}; margin: 0; }
-        * { box-sizing: border-box; }
-      `}</style>
+    <div className="dash-root dash-upload">
+      <header className="dash-upload-header">
+        <div className="dash-upload-header-left">
+          <button className="dash-back" onClick={() => router.push('/')}>
+            <ArrowLeft size={14} strokeWidth={2.2} />
+            Dashboard
+          </button>
+          <div className="dash-crumbs">
+            <span className="dash-crumb">{clientName || 'Client'}</span>
+            <span className="dash-crumb-sep">·</span>
+            <span className="dash-crumb dash-crumb-current">Financial needs analysis</span>
+          </div>
+        </div>
+      </header>
 
-      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '48px 32px' }}>
-        {/* Back Button */}
-        <button
-          onClick={() => router.push('/')}
-          style={{
-            padding: '10px 16px',
-            backgroundColor: TOKENS.surface,
-            border: `1px solid ${TOKENS.border}`,
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontSize: '13px',
-            fontWeight: '500',
-            color: TOKENS.inkSecondary,
-            marginBottom: '48px',
-            transition: 'all 0.15s',
-          }}
-          onMouseEnter={(e) => {
-            e.target.style.backgroundColor = TOKENS.surface2;
-            e.target.style.borderColor = TOKENS.borderSoft;
-          }}
-          onMouseLeave={(e) => {
-            e.target.style.backgroundColor = TOKENS.surface;
-            e.target.style.borderColor = TOKENS.border;
-          }}
-        >
-          ← Back to Dashboard
-        </button>
-
-        {/* Page Header */}
-        <div style={{ marginBottom: '48px' }}>
-          <h1 style={{
-            fontSize: '26px',
-            fontWeight: '700',
-            letterSpacing: '-0.02em',
-            color: TOKENS.inkPrimary,
-            marginBottom: '12px'
-          }}>
-            Financial Needs Analysis
-          </h1>
-          <p style={{
-            fontSize: '13px',
-            fontWeight: '500',
-            color: TOKENS.inkSecondary,
-            margin: '0',
-            lineHeight: '1.65'
-          }}>
-            {clientName} • Upload up to 4 screenshots of financial information
+      <div className="dash-upload-body no-rail">
+        <main>
+          <h1 className="dash-h1" style={{ marginBottom: 6 }}>Financial needs analysis</h1>
+          <p className="dash-section-sub">
+            Upload up to 4 screenshots covering personal details, policies, assets, liabilities, and monthly cashflow. We'll extract and analyse the data automatically.
           </p>
-        </div>
 
-        {/* Upload Instructions */}
-        <div style={{
-          backgroundColor: TOKENS.surface,
-          border: `1px solid ${TOKENS.border}`,
-          borderRadius: '12px',
-          padding: '24px',
-          marginBottom: '32px',
-          boxShadow: TOKENS.shadowSm
-        }}>
-          <p style={{
-            fontSize: '13px',
-            color: TOKENS.inkSecondary,
-            lineHeight: '1.65',
-            margin: '0'
-          }}>
-            Upload screenshots showing personal details, policies, assets, liabilities, and monthly cashflow. We'll extract and analyze the data automatically.
-          </p>
-        </div>
+          <FNAUploadArea
+            onFilesSelected={handleFilesSelected}
+            maxFiles={4}
+            label="Upload FNA screenshots"
+          />
 
-        {/* Upload Area */}
-        <div style={{ marginBottom: '32px' }}>
-          <FNAUploadArea onFilesSelected={handleFilesSelected} maxFiles={4} label="Upload FNA Screenshots" />
-        </div>
-
-        {/* Uploaded Files List */}
-        {uploadedFiles.length > 0 && (
-          <div style={{
-            backgroundColor: TOKENS.surface,
-            border: `1px solid ${TOKENS.border}`,
-            borderRadius: '12px',
-            padding: '24px',
-            marginBottom: '32px',
-            boxShadow: TOKENS.shadowSm
-          }}>
-            <p style={{
-              fontSize: '11px',
-              fontWeight: '600',
-              textTransform: 'uppercase',
-              color: TOKENS.inkTertiary,
-              letterSpacing: '0.07em',
-              marginBottom: '16px',
-              margin: '0 0 16px 0'
-            }}>
-              Uploaded Files ({uploadedFiles.length}/4)
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {uploadedFiles.map((file, index) => (
-                <div
-                  key={index}
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '12px 16px',
-                    backgroundColor: TOKENS.surface2,
-                    border: `1px solid ${TOKENS.borderSoft}`,
-                    borderRadius: '8px',
-                    fontSize: '13px',
-                    color: TOKENS.inkSecondary
-                  }}
-                >
-                  <span style={{ fontVariantNumeric: 'tabular-nums' }}>
-                    {file.name} • {(file.size / 1024 / 1024).toFixed(2)} MB
-                  </span>
-                  <button
-                    onClick={() => removeFile(index)}
+          {uploadedFiles.length > 0 && (
+            <section className="dash-panel" style={{ padding: 0, marginTop: 20, overflow: 'hidden' }}>
+              <header className="dash-panel-header">
+                <div className="dash-eyebrow">Uploaded files ({uploadedFiles.length}/4)</div>
+              </header>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {uploadedFiles.map((file, index) => (
+                  <div
+                    key={`${file.name}-${index}`}
                     style={{
-                      padding: '6px 12px',
-                      backgroundColor: 'transparent',
-                      color: TOKENS.negative,
-                      border: `1px solid ${TOKENS.negative}`,
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      fontSize: '12px',
-                      fontWeight: '500',
-                      transition: 'all 0.15s'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.backgroundColor = TOKENS.negative;
-                      e.target.style.color = 'white';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.backgroundColor = 'transparent';
-                      e.target.style.color = TOKENS.negative;
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 12,
+                      padding: '12px 20px',
+                      borderTop: index === 0 ? 'none' : '1px solid var(--border)',
                     }}
                   >
-                    Remove
-                  </button>
-                </div>
-              ))}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                      <span style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 8,
+                        background: 'var(--accent-50)',
+                        color: 'var(--accent-600)',
+                        display: 'grid',
+                        placeItems: 'center',
+                        flexShrink: 0,
+                      }}>
+                        <FileImage size={15} strokeWidth={2} />
+                      </span>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {file.name}
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--muted)', fontVariantNumeric: 'tabular-nums' }}>
+                          {(file.size / 1024 / 1024).toFixed(2)} MB
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="dash-btn dash-btn-ghost"
+                      onClick={() => removeFile(index)}
+                      style={{ height: 30, padding: '0 10px', fontSize: 12.5 }}
+                      aria-label={`Remove ${file.name}`}
+                    >
+                      <XIcon size={13} strokeWidth={2.4} />
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {extractionError && (
+            <div className="dash-banner dash-banner-danger" style={{ marginTop: 20 }} role="alert">
+              <span className="dash-banner-icon">
+                <AlertCircle size={15} strokeWidth={2.2} />
+              </span>
+              <span>{extractionError}</span>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Error Message */}
-        {extractionError && (
-          <div style={{
-            backgroundColor: '#fef2f2',
-            border: `1px solid ${TOKENS.negative}`,
-            borderRadius: '8px',
-            padding: '16px',
-            marginBottom: '32px',
-            fontSize: '13px',
-            color: TOKENS.negative,
-            display: 'flex',
-            gap: '12px'
-          }}>
-            <span style={{ fontWeight: '600' }}>⚠</span>
-            <span>{extractionError}</span>
+          <div style={{ marginTop: 24, display: 'flex', justifyContent: 'flex-end' }}>
+            <button
+              className="dash-btn dash-btn-generate"
+              onClick={handleExtract}
+              disabled={uploadedFiles.length === 0 || isExtracting}
+              style={uploadedFiles.length === 0 ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
+            >
+              <Sparkles size={14} strokeWidth={2.2} />
+              {isExtracting ? 'Extracting…' : 'Extract & analyse'}
+            </button>
           </div>
-        )}
-
-        {/* Extract Button */}
-        <button
-          onClick={handleExtract}
-          disabled={uploadedFiles.length === 0}
-          style={{
-            width: '100%',
-            padding: '12px 24px',
-            backgroundColor: uploadedFiles.length === 0 ? TOKENS.borderSoft : TOKENS.brand,
-            color: uploadedFiles.length === 0 ? TOKENS.inkMuted : 'white',
-            border: 'none',
-            borderRadius: '8px',
-            cursor: uploadedFiles.length === 0 ? 'not-allowed' : 'pointer',
-            fontSize: '13px',
-            fontWeight: '600',
-            transition: 'all 0.15s',
-            opacity: uploadedFiles.length === 0 ? 0.6 : 1,
-          }}
-          onMouseEnter={(e) => {
-            if (uploadedFiles.length > 0) {
-              e.target.style.backgroundColor = '#5348dd';
-              e.target.style.transform = 'translateY(-1px)';
-              e.target.style.boxShadow = TOKENS.shadowMd;
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (uploadedFiles.length > 0) {
-              e.target.style.backgroundColor = TOKENS.brand;
-              e.target.style.transform = 'translateY(0)';
-              e.target.style.boxShadow = 'none';
-            }
-          }}
-        >
-          {isExtracting ? '⏳ Extracting...' : '✓ Extract & Analyze'}
-        </button>
+        </main>
       </div>
     </div>
   );

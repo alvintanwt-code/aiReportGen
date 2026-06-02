@@ -1,6 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import {
+  Mail,
+  Lock,
+  User,
+  ArrowRight,
+  AlertCircle,
+  CheckCircle2,
+  Sparkles,
+  ShieldCheck,
+  LineChart,
+} from 'lucide-react';
 import { signUp, login, resetPassword } from '../lib/firebaseUtils';
 
 export default function LoginPage({ onAuthSuccess }) {
@@ -13,485 +24,307 @@ export default function LoginPage({ onAuthSuccess }) {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [resetMessage, setResetMessage] = useState('');
+  const [resetSending, setResetSending] = useState(false);
   const [displayedText, setDisplayedText] = useState('');
 
-  // Typing animation effect
-  useEffect(() => {
-    const fullText = 'Welcome, Leet Advisor';
-    let currentIndex = 0;
+  const tagline = 'Smarter portfolio reviews.';
+  const [logoFailed, setLogoFailed] = useState(false);
 
-    const typingInterval = setInterval(() => {
-      if (currentIndex <= fullText.length) {
-        setDisplayedText(fullText.slice(0, currentIndex));
+  useEffect(() => {
+    setDisplayedText('');
+    let currentIndex = 0;
+    const id = setInterval(() => {
+      if (currentIndex <= tagline.length) {
+        setDisplayedText(tagline.slice(0, currentIndex));
         currentIndex++;
       } else {
-        clearInterval(typingInterval);
+        clearInterval(id);
       }
-    }, 63); // ~63ms per character for natural typing pace
-
-    return () => clearInterval(typingInterval);
+    }, 55);
+    return () => clearInterval(id);
   }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
-
     try {
       if (isSignUp) {
-        // Sign up
         if (!name.trim()) {
-          setError('Please enter your name');
+          setError('Please enter your name.');
           setIsLoading(false);
           return;
         }
         await signUp(email, password, name);
-        console.log('[LoginPage] Sign up successful');
       } else {
-        // Login
         await login(email, password);
-        console.log('[LoginPage] Login successful');
       }
-
-      // Success - callback to parent
       onAuthSuccess();
     } catch (err) {
       console.error('[LoginPage] Auth error:', err);
-      setError(err.message || 'Authentication failed');
+      setError(err.message || 'Authentication failed.');
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleSendReset = async () => {
+    if (!resetEmail.trim()) {
+      setError('Enter the email tied to your account.');
+      return;
+    }
+    setError('');
+    setResetSending(true);
+    try {
+      await resetPassword(resetEmail);
+      setResetMessage('Check your inbox for a reset link.');
+    } catch (err) {
+      setError(err.message || 'Failed to send reset email.');
+    } finally {
+      setResetSending(false);
+    }
+  };
+
+  const closeReset = () => {
+    setShowForgotPassword(false);
+    setResetEmail('');
+    setResetMessage('');
+    setError('');
+  };
+
+  const toggleMode = () => {
+    setIsSignUp((v) => !v);
+    setError('');
+    setName('');
+    setEmail('');
+    setPassword('');
+    setShowForgotPassword(false);
+  };
+
   return (
-    <div className="gradient-northern-lights" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
-      <div style={{ width: '100%', maxWidth: '420px' }}>
-        {/* Header */}
-        <div style={{ marginBottom: '40px', textAlign: 'center' }}>
-          <style>{`
-            @keyframes typing-cursor {
-              0%, 49% { opacity: 1; }
-              50%, 100% { opacity: 0; }
-            }
-            .typing-text-login {
-              display: inline-block;
-              position: relative;
-              white-space: nowrap;
-            }
-            .typing-cursor-login {
-              animation: typing-cursor 0.6s infinite;
-              margin-left: 2px;
-            }
-          `}</style>
-          <h1 style={{ fontSize: '42px', fontWeight: '700', margin: '0 0 16px 0', color: '#1a1a1a', letterSpacing: '-1px', fontFamily: "'Albra', sans-serif", whiteSpace: 'nowrap', minHeight: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span className="typing-text-login">
-              {displayedText}
-              {displayedText.length < 'Welcome, Leet Advisor'.length && (
-                <span className="typing-cursor-login">|</span>
-              )}
-            </span>
-          </h1>
-          <p style={{ fontSize: '16px', color: '#666', margin: '0', fontFamily: "'Poppins', sans-serif" }}>
-            {isSignUp ? 'Create your account' : 'Sign in to your account'}
+    <div className="dash-auth">
+      <aside className="dash-auth-aside">
+        <div className="dash-auth-brand">
+          <div className="dash-brand-mark">
+            {logoFailed ? (
+              'L'
+            ) : (
+              <img
+                src="/leet-logo.png"
+                alt="Leet Studio"
+                onError={() => setLogoFailed(true)}
+                style={{ width: '92%', height: '92%', objectFit: 'contain' }}
+              />
+            )}
+          </div>
+          <span>Leet Studio</span>
+        </div>
+
+        <div className="dash-auth-pitch">
+          <h2>
+            {displayedText}
+            {displayedText.length < tagline.length && (
+              <span className="dash-typing-cursor" aria-hidden="true" />
+            )}
+          </h2>
+          <p>
+            Upload statements, generate insights, and deliver client-ready reviews with an AI workflow built for financial advisors.
           </p>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {/* Name Field (only for signup) */}
-          {isSignUp && (
-            <input
-              type="text"
-              placeholder="Your name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              style={{
-                padding: '14px 18px',
-                fontSize: '15px',
-                border: '1px solid rgba(255, 255, 255, 0.8)',
-                backgroundColor: 'rgba(255, 255, 255, 0.5)',
-                borderRadius: '45px',
-                color: '#1a1a1a',
-                outline: 'none',
-                fontFamily: "'Poppins', sans-serif",
-                transition: 'all 0.2s ease',
-              }}
-              onFocus={(e) => {
-                e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.7)';
-                e.target.style.borderColor = 'rgba(255, 255, 255, 1)';
-              }}
-              onBlur={(e) => {
-                e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.5)';
-                e.target.style.borderColor = 'rgba(255, 255, 255, 0.8)';
-              }}
-            />
-          )}
+        <div className="dash-auth-features">
+          <div className="dash-auth-feature">
+            <span className="dash-auth-feature-icon">
+              <Sparkles size={14} strokeWidth={2.2} />
+            </span>
+            <span>Extract holdings from screenshots or CSV in seconds.</span>
+          </div>
+          <div className="dash-auth-feature">
+            <span className="dash-auth-feature-icon">
+              <LineChart size={14} strokeWidth={2.2} />
+            </span>
+            <span>Generate quarterly reviews with allocation analysis baked in.</span>
+          </div>
+          <div className="dash-auth-feature">
+            <span className="dash-auth-feature-icon">
+              <ShieldCheck size={14} strokeWidth={2.2} />
+            </span>
+            <span>Client data stays scoped to your account, encrypted at rest.</span>
+          </div>
+        </div>
+      </aside>
 
-          {/* Email Field */}
-          <input
-            type="email"
-            placeholder="Email address"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            style={{
-              padding: '14px 18px',
-              fontSize: '15px',
-              border: '1px solid rgba(255, 255, 255, 0.8)',
-              backgroundColor: 'rgba(255, 255, 255, 0.5)',
-              borderRadius: '45px',
-              color: '#1a1a1a',
-              outline: 'none',
-              fontFamily: "'Poppins', sans-serif",
-              transition: 'all 0.2s ease',
-            }}
-            onFocus={(e) => {
-              e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.7)';
-              e.target.style.borderColor = 'rgba(255, 255, 255, 1)';
-            }}
-            onBlur={(e) => {
-              e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.5)';
-              e.target.style.borderColor = 'rgba(255, 255, 255, 0.8)';
-            }}
-          />
-
-          {/* Password Field */}
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            style={{
-              padding: '14px 18px',
-              fontSize: '15px',
-              border: '1px solid rgba(255, 255, 255, 0.8)',
-              backgroundColor: 'rgba(255, 255, 255, 0.5)',
-              borderRadius: '45px',
-              color: '#1a1a1a',
-              outline: 'none',
-              fontFamily: "'Poppins', sans-serif",
-              transition: 'all 0.2s ease',
-            }}
-            onFocus={(e) => {
-              e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.7)';
-              e.target.style.borderColor = 'rgba(255, 255, 255, 1)';
-            }}
-            onBlur={(e) => {
-              e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.5)';
-              e.target.style.borderColor = 'rgba(255, 255, 255, 0.8)';
-            }}
-          />
-
-          {/* Error Message */}
-          {error && (
-            <p style={{ color: '#dc3545', fontSize: '14px', margin: '0', textAlign: 'center', fontFamily: "'Poppins', sans-serif" }}>
-              {error}
+      <main className="dash-auth-main">
+        <form className="dash-auth-form" onSubmit={handleSubmit}>
+          <header className="dash-auth-header">
+            <h1>{isSignUp ? 'Create your account' : 'Welcome back'}</h1>
+            <p>
+              {isSignUp
+                ? 'Set up an advisor account in under a minute.'
+                : 'Sign in to continue managing client portfolios.'}
             </p>
+          </header>
+
+          {isSignUp && (
+            <div className="dash-field">
+              <label className="dash-label" htmlFor="auth-name">Full name</label>
+              <input
+                id="auth-name"
+                type="text"
+                className="dash-input dash-input-lg"
+                placeholder="Jordan Tan"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                autoComplete="name"
+              />
+            </div>
           )}
 
-          {/* Submit Button */}
+          <div className="dash-field">
+            <label className="dash-label" htmlFor="auth-email">Email</label>
+            <input
+              id="auth-email"
+              type="email"
+              className="dash-input dash-input-lg"
+              placeholder="you@firm.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoComplete="email"
+            />
+          </div>
+
+          <div className="dash-field">
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+              <label className="dash-label" htmlFor="auth-password">Password</label>
+              {!isSignUp && (
+                <button
+                  type="button"
+                  className="dash-link dash-link-quiet"
+                  style={{ fontSize: 12.5 }}
+                  onClick={() => setShowForgotPassword(true)}
+                >
+                  Forgot?
+                </button>
+              )}
+            </div>
+            <input
+              id="auth-password"
+              type="password"
+              className="dash-input dash-input-lg"
+              placeholder={isSignUp ? 'At least 6 characters' : 'Your password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              autoComplete={isSignUp ? 'new-password' : 'current-password'}
+            />
+          </div>
+
+          {error && (
+            <div className="dash-banner dash-banner-danger" role="alert">
+              <span className="dash-banner-icon">
+                <AlertCircle size={15} strokeWidth={2.2} />
+              </span>
+              <span>{error}</span>
+            </div>
+          )}
+
           <button
             type="submit"
+            className="dash-btn dash-btn-primary dash-auth-submit"
             disabled={isLoading}
-            style={{
-              padding: '14px 24px',
-              backgroundColor: '#FFA366',
-              color: 'white',
-              border: 'none',
-              borderRadius: '45px',
-              cursor: isLoading ? 'not-allowed' : 'pointer',
-              fontSize: '15px',
-              fontWeight: '600',
-              transition: 'background-color 0.2s ease',
-              fontFamily: "'Poppins', sans-serif",
-              opacity: isLoading ? 0.7 : 1,
-            }}
-            onMouseEnter={(e) => {
-              if (!isLoading) e.target.style.backgroundColor = '#FF8F44';
-            }}
-            onMouseLeave={(e) => {
-              if (!isLoading) e.target.style.backgroundColor = '#FFA366';
-            }}
+            style={isLoading ? { opacity: 0.7, cursor: 'wait' } : undefined}
           >
-            {isLoading ? 'Loading...' : isSignUp ? 'Create Account' : 'Sign In'}
-          </button>
-        </form>
-
-        {/* Forgot Password Link */}
-        {!isSignUp && (
-          <div style={{ marginTop: '16px', textAlign: 'center' }}>
-            <button
-              type="button"
-              onClick={() => setShowForgotPassword(true)}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#999',
-                cursor: 'pointer',
-                fontSize: '13px',
-                fontFamily: "'Poppins', sans-serif",
-                transition: 'color 0.2s ease',
-                boxShadow: 'none',
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.color = '#666';
-                e.target.style.boxShadow = 'none';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.color = '#999';
-                e.target.style.boxShadow = 'none';
-              }}
-            >
-              Forgot password?
-            </button>
-          </div>
-        )}
-
-        {/* Toggle */}
-        <div style={{ marginTop: '24px', textAlign: 'center' }}>
-          <p style={{ fontSize: '14px', color: '#666', margin: '0', fontFamily: "'Poppins', sans-serif" }}>
-            {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
-            <button
-              type="button"
-              onClick={() => {
-                setIsSignUp(!isSignUp);
-                setError('');
-                setName('');
-                setEmail('');
-                setPassword('');
-                setShowForgotPassword(false);
-                setResetEmail('');
-                setResetMessage('');
-              }}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#FFA366',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '600',
-                fontFamily: "'Poppins', sans-serif",
-                transition: 'opacity 0.2s ease',
-                boxShadow: 'none',
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.opacity = '0.8';
-                e.target.style.boxShadow = 'none';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.opacity = '1';
-                e.target.style.boxShadow = 'none';
-              }}
-            >
-              {isSignUp ? 'Sign In' : 'Sign Up'}
-            </button>
-          </p>
-        </div>
-      </div>
-
-      {/* Forgot Password Modal */}
-      {showForgotPassword && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.4)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '24px',
-          zIndex: 1000,
-        }}>
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '12px',
-            padding: '32px',
-            maxWidth: '380px',
-            width: '100%',
-            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.1)',
-          }}>
-            <h2 style={{
-              fontSize: '24px',
-              fontWeight: '600',
-              margin: '0 0 8px 0',
-              color: '#1a1a1a',
-              fontFamily: "'Poppins', sans-serif",
-            }}>
-              Reset Password
-            </h2>
-            <p style={{
-              fontSize: '14px',
-              color: '#666',
-              margin: '0 0 24px 0',
-              fontFamily: "'Poppins', sans-serif",
-            }}>
-              Enter your email and we'll send you a password reset link.
-            </p>
-
-            {resetMessage && (
-              <div style={{
-                backgroundColor: '#d4edda',
-                color: '#155724',
-                padding: '12px 16px',
-                borderRadius: '8px',
-                fontSize: '14px',
-                marginBottom: '16px',
-                fontFamily: "'Poppins', sans-serif",
-              }}>
-                {resetMessage}
-              </div>
-            )}
-
-            {!resetMessage && (
+            {isLoading ? (
               <>
-                <input
-                  type="email"
-                  placeholder="Email address"
-                  value={resetEmail}
-                  onChange={(e) => setResetEmail(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '12px 16px',
-                    fontSize: '15px',
-                    border: '1px solid #e0e0e0',
-                    borderRadius: '8px',
-                    boxSizing: 'border-box',
-                    marginBottom: '16px',
-                    fontFamily: "'Poppins', sans-serif",
-                    outline: 'none',
-                    transition: 'all 0.2s ease',
-                  }}
-                  onFocus={(e) => {
-                    e.target.style.borderColor = '#FFA366';
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.borderColor = '#e0e0e0';
-                  }}
-                />
-
-                <div style={{ display: 'flex', gap: '12px' }}>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (!resetEmail) {
-                        setError('Please enter your email');
-                        return;
-                      }
-                      setIsLoading(true);
-                      try {
-                        await resetPassword(resetEmail);
-                        setResetMessage('Password reset email sent! Check your inbox.');
-                      } catch (err) {
-                        setError(err.message || 'Failed to send reset email');
-                      } finally {
-                        setIsLoading(false);
-                      }
-                    }}
-                    disabled={isLoading}
-                    style={{
-                      flex: 1,
-                      padding: '12px 24px',
-                      backgroundColor: '#FFA366',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '8px',
-                      cursor: isLoading ? 'not-allowed' : 'pointer',
-                      fontSize: '14px',
-                      fontWeight: '600',
-                      fontFamily: "'Poppins', sans-serif",
-                      opacity: isLoading ? 0.7 : 1,
-                      transition: 'background-color 0.2s ease',
-                      boxShadow: 'none',
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isLoading) {
-                        e.target.style.backgroundColor = '#FF8F44';
-                        e.target.style.boxShadow = 'none';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isLoading) {
-                        e.target.style.backgroundColor = '#FFA366';
-                        e.target.style.boxShadow = 'none';
-                      }
-                    }}
-                  >
-                    {isLoading ? 'Sending...' : 'Send Reset Link'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowForgotPassword(false);
-                      setResetEmail('');
-                      setResetMessage('');
-                      setError('');
-                    }}
-                    style={{
-                      flex: 1,
-                      padding: '12px 24px',
-                      backgroundColor: '#f0f0f0',
-                      color: '#666',
-                      border: 'none',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      fontWeight: '600',
-                      fontFamily: "'Poppins', sans-serif",
-                      transition: 'background-color 0.2s ease',
-                      boxShadow: 'none',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.backgroundColor = '#e0e0e0';
-                      e.target.style.boxShadow = 'none';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.backgroundColor = '#f0f0f0';
-                      e.target.style.boxShadow = 'none';
-                    }}
-                  >
-                    Cancel
-                  </button>
-                </div>
+                <span className="dash-spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
+                {isSignUp ? 'Creating account' : 'Signing in'}
+              </>
+            ) : (
+              <>
+                {isSignUp ? 'Create account' : 'Sign in'}
+                <ArrowRight size={14} strokeWidth={2.4} />
               </>
             )}
+          </button>
 
-            {resetMessage && (
-              <button
-                type="button"
-                onClick={() => {
-                  setShowForgotPassword(false);
-                  setResetEmail('');
-                  setResetMessage('');
-                }}
-                style={{
-                  width: '100%',
-                  padding: '12px 24px',
-                  backgroundColor: '#FFA366',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  fontFamily: "'Poppins', sans-serif",
-                  transition: 'background-color 0.2s ease',
-                  boxShadow: 'none',
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.backgroundColor = '#FF8F44';
-                  e.target.style.boxShadow = 'none';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.backgroundColor = '#FFA366';
-                  e.target.style.boxShadow = 'none';
-                }}
-              >
-                Back to Login
-              </button>
-            )}
+          <div className="dash-auth-divider">
+            {isSignUp ? 'Already have an account?' : "New to Leet Studio?"}{' '}
+            <button type="button" className="dash-link" onClick={toggleMode}>
+              {isSignUp ? 'Sign in' : 'Create an account'}
+            </button>
+          </div>
+        </form>
+      </main>
+
+      {showForgotPassword && (
+        <div className="dash-modal" onClick={(e) => { if (e.target === e.currentTarget) closeReset(); }}>
+          <div className="dash-modal-card is-small">
+            <div className="dash-panel-header">
+              <div>
+                <div className="dash-h2" style={{ fontSize: 18 }}>Reset your password</div>
+                <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>
+                  We'll email you a link to set a new one.
+                </div>
+              </div>
+            </div>
+            <div className="dash-panel-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {resetMessage ? (
+                <>
+                  <div className="dash-banner dash-banner-success">
+                    <span className="dash-banner-icon">
+                      <CheckCircle2 size={15} strokeWidth={2.2} />
+                    </span>
+                    <span>{resetMessage}</span>
+                  </div>
+                  <button type="button" className="dash-btn dash-btn-primary" onClick={closeReset}>
+                    Back to sign in
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="dash-field">
+                    <label className="dash-label" htmlFor="reset-email">Email</label>
+                    <input
+                      id="reset-email"
+                      type="email"
+                      className="dash-input"
+                      placeholder="you@firm.com"
+                      value={resetEmail}
+                      onChange={(e) => setResetEmail(e.target.value)}
+                      autoFocus
+                    />
+                  </div>
+                  {error && (
+                    <div className="dash-banner dash-banner-danger" role="alert">
+                      <span className="dash-banner-icon">
+                        <AlertCircle size={15} strokeWidth={2.2} />
+                      </span>
+                      <span>{error}</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      type="button"
+                      className="dash-btn dash-btn-ghost"
+                      onClick={closeReset}
+                      style={{ flex: 1 }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="dash-btn dash-btn-primary"
+                      onClick={handleSendReset}
+                      disabled={resetSending}
+                      style={{ flex: 1, ...(resetSending ? { opacity: 0.7, cursor: 'wait' } : null) }}
+                    >
+                      {resetSending ? 'Sending' : 'Send reset link'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}

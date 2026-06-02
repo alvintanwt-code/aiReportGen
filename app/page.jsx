@@ -1,8 +1,25 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { reload } from 'firebase/auth';
+import {
+  Search,
+  Plus,
+  LogOut,
+  MoreHorizontal,
+  Trash2,
+  FileText,
+  ClipboardCheck,
+  LayoutGrid,
+  List as ListIcon,
+  Check,
+  ChevronRight,
+  Users,
+  Wallet,
+  Scan,
+  X as XIcon,
+} from 'lucide-react';
 import ReviewUploadView from '../components/ReviewUploadView';
 import LoginPage from '../components/LoginPage';
 import { getInitialClients, getInitialReviews } from '../lib/mockData';
@@ -12,51 +29,563 @@ import { auth } from '../lib/firebase';
 // Simple UUID generator
 const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-function LandingPage({ clients, reviews, onAddClient, onSelectClient, onDeleteClient, onNewReview, onPastReviews, userName, searchQuery, onSearchChange, savedSummaryClientIds }) {
-  const router = useRouter();
-  const [clientName, setClientName] = useState('');
-  const [displayedText, setDisplayedText] = useState('');
+function BrandMark({ size = 26 }) {
+  const [fallback, setFallback] = useState(false);
+  return (
+    <div className="dash-brand-mark" style={{ width: size, height: size }}>
+      {fallback ? (
+        'L'
+      ) : (
+        <img
+          src="/leet-logo.png"
+          alt="Leet Studio"
+          width={size}
+          height={size}
+          onError={() => setFallback(true)}
+          style={{ width: '92%', height: '92%', objectFit: 'contain' }}
+        />
+      )}
+    </div>
+  );
+}
 
-  // Typing animation effect
+const AVATAR_TINTS = [
+  { bg: 'var(--accent-50)', fg: 'var(--accent-600)' },
+  { bg: 'var(--success-50)', fg: 'var(--success-500)' },
+  { bg: 'var(--review-50)', fg: 'var(--review-600)' },
+  { bg: '#fef0e6', fg: '#c2611b' },
+  { bg: '#e6f3f8', fg: '#1e6f8c' },
+  { bg: '#fef5e7', fg: '#a4760a' },
+];
+
+function tintForName(name) {
+  if (!name) return AVATAR_TINTS[0];
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return AVATAR_TINTS[h % AVATAR_TINTS.length];
+}
+
+function getInitials(name) {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/);
+  const first = parts[0]?.[0] || '';
+  const second = parts.length > 1 ? parts[parts.length - 1][0] : '';
+  return (first + second).toUpperCase() || '?';
+}
+
+function useClickAway(ref, onAway, active = true) {
   useEffect(() => {
-    const fullText = `Hello, ${userName}`;
-    let currentIndex = 0;
+    if (!active) return;
+    const onDoc = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) onAway();
+    };
+    const onEsc = (e) => {
+      if (e.key === 'Escape') onAway();
+    };
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onEsc);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onEsc);
+    };
+  }, [ref, onAway, active]);
+}
 
+function StatusChips({ hasFNASummary, hasReviews, reviewCount, onFNAClick, onReviewsClick }) {
+  return (
+    <div className="dash-status-chips">
+      {hasFNASummary ? (
+        <button
+          type="button"
+          className="dash-status-chip is-fna-done"
+          onClick={(e) => { e.stopPropagation(); onFNAClick(); }}
+          title="View FNA summary"
+        >
+          <span className="dash-status-chip-icon"><Check size={12} strokeWidth={2.6} /></span>
+          <span>FNA · view</span>
+          <span className="dash-status-chip-chev"><ChevronRight size={12} strokeWidth={2.2} /></span>
+        </button>
+      ) : (
+        <span className="dash-status-chip is-empty">
+          <span className="dash-status-chip-dot" />
+          <span>No FNA yet</span>
+        </span>
+      )}
+
+      {hasReviews ? (
+        <button
+          type="button"
+          className="dash-status-chip is-review-done"
+          onClick={(e) => { e.stopPropagation(); onReviewsClick(); }}
+          title="View past reviews"
+        >
+          <span className="dash-status-chip-dot" />
+          <span>{reviewCount} review{reviewCount === 1 ? '' : 's'} · history</span>
+          <span className="dash-status-chip-chev"><ChevronRight size={12} strokeWidth={2.2} /></span>
+        </button>
+      ) : (
+        <span className="dash-status-chip is-empty">
+          <span className="dash-status-chip-dot" />
+          <span>No reviews yet</span>
+        </span>
+      )}
+    </div>
+  );
+}
+
+function HoverCTAs({ hasFNASummary, hasReviews, onNewReview, onScanFNA }) {
+  const needsReview = !hasReviews;
+  const needsFNA = !hasFNASummary;
+  if (!needsReview && !needsFNA) return null;
+  return (
+    <div className="dash-status-cta" onClick={(e) => e.stopPropagation()}>
+      {needsReview && (
+        <button type="button" className="dash-btn dash-btn-primary" onClick={onNewReview}>
+          <Plus size={13} strokeWidth={2.6} />
+          New review
+        </button>
+      )}
+      {needsFNA && (
+        <button type="button" className="dash-btn dash-btn-success" onClick={onScanFNA}>
+          <Scan size={13} strokeWidth={2.4} />
+          Scan FNA
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ClientCardItem({
+  client,
+  stats,
+  hasFNASummary,
+  index,
+  onSelect,
+  onNewReview,
+  onPastReviews,
+  onFNA,
+  onViewFNASummary,
+  onDelete,
+  formatAUM,
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const menuRef = useRef(null);
+  useClickAway(menuRef, () => setMenuOpen(false), menuOpen);
+
+  const createdLabel = new Date(client.createdAt).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+
+  const tint = tintForName(client.name);
+  const hasReviews = stats.reviewCount > 0;
+
+  if (confirming) {
+    return (
+      <div className="dash-card" style={{ animationDelay: `${Math.min(index, 12) * 30}ms`, cursor: 'default' }}>
+        <div className="dash-confirm">
+          <div>
+            <div className="dash-confirm-title">Delete {client.name}?</div>
+            <div className="dash-confirm-body">
+              This removes the client along with every linked review and portfolio. It cannot be undone.
+            </div>
+          </div>
+          <div className="dash-confirm-actions">
+            <button className="dash-btn dash-btn-ghost" onClick={() => setConfirming(false)}>
+              Cancel
+            </button>
+            <button className="dash-btn dash-btn-danger" onClick={() => onDelete(client.id)}>
+              <Trash2 size={14} strokeWidth={2.2} />
+              Delete
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="dash-card"
+      style={{ animationDelay: `${Math.min(index, 12) * 30}ms`, cursor: 'default' }}
+    >
+      <div className="dash-card-head">
+        <div className="dash-card-name-row">
+          <div className="dash-avatar" aria-hidden="true" style={{ background: tint.bg, color: tint.fg }}>
+            {getInitials(client.name)}
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <p className="dash-card-name" title={client.name}>{client.name}</p>
+            <p className="dash-card-sub">Added {createdLabel}</p>
+          </div>
+        </div>
+
+        <div className="dash-kebab-wrap" ref={menuRef} onClick={(e) => e.stopPropagation()}>
+          <button
+            className="dash-kebab"
+            aria-label="More actions"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((v) => !v)}
+          >
+            <MoreHorizontal size={16} strokeWidth={2.2} />
+          </button>
+          {menuOpen && (
+            <div className="dash-menu" role="menu">
+              <button className="dash-menu-item" role="menuitem"
+                onClick={() => { setMenuOpen(false); onFNA(client.id); }}>
+                <ClipboardCheck size={14} strokeWidth={2} />
+                Financial needs analysis
+              </button>
+              {hasFNASummary && (
+                <button className="dash-menu-item" role="menuitem"
+                  onClick={() => { setMenuOpen(false); onViewFNASummary(client.id); }}>
+                  <FileText size={14} strokeWidth={2} />
+                  View FNA summary
+                </button>
+              )}
+              <div className="dash-menu-divider" />
+              <button className="dash-menu-item dash-menu-item-danger" role="menuitem"
+                onClick={() => { setMenuOpen(false); setConfirming(true); }}>
+                <Trash2 size={14} strokeWidth={2} />
+                Delete client
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="dash-card-stats">
+        <div>
+          <div className="dash-card-stat-label">Reviews</div>
+          <div className="dash-card-stat-value">{stats.reviewCount}</div>
+        </div>
+        <div>
+          <div className="dash-card-stat-label">Portfolios</div>
+          <div className="dash-card-stat-value">{stats.portfolioCount}</div>
+        </div>
+        <div>
+          <div className="dash-card-stat-label">AUM</div>
+          <div className="dash-card-stat-value">{formatAUM(stats.totalAUM)}</div>
+        </div>
+      </div>
+
+      <div className="dash-status-stack">
+        <StatusChips
+          hasFNASummary={hasFNASummary}
+          hasReviews={hasReviews}
+          reviewCount={stats.reviewCount}
+          onFNAClick={() => onViewFNASummary(client.id)}
+          onReviewsClick={() => onPastReviews(client.id)}
+        />
+      </div>
+
+      <div className="dash-card-cta-slot">
+        <div className="dash-card-cta" onClick={(e) => e.stopPropagation()}>
+          <button type="button" className="dash-btn dash-btn-primary" onClick={() => onNewReview(client.id)}>
+            <Plus size={13} strokeWidth={2.6} />
+            New review
+          </button>
+          <button type="button" className="dash-btn dash-btn-success" onClick={() => onFNA(client.id)}>
+            <Scan size={13} strokeWidth={2.4} />
+            Scan FNA
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ClientListRow({
+  client,
+  stats,
+  hasFNASummary,
+  onSelect,
+  onNewReview,
+  onPastReviews,
+  onFNA,
+  onViewFNASummary,
+  onDelete,
+  formatAUM,
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const menuRef = useRef(null);
+  useClickAway(menuRef, () => setMenuOpen(false), menuOpen);
+
+  const tint = tintForName(client.name);
+  const createdLabel = new Date(client.createdAt).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  });
+  const hasReviews = stats.reviewCount > 0;
+
+  if (confirming) {
+    return (
+      <div className="dash-list-row" style={{ gridTemplateColumns: '1fr auto' }}>
+        <div style={{ fontSize: 13.5, color: 'var(--text)' }}>
+          Delete <strong>{client.name}</strong>? This removes the client and all linked data.
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="dash-btn dash-btn-ghost" onClick={() => setConfirming(false)} style={{ height: 32, fontSize: 12.5 }}>
+            Cancel
+          </button>
+          <button className="dash-btn dash-btn-danger" onClick={() => onDelete(client.id)} style={{ height: 32, fontSize: 12.5 }}>
+            <Trash2 size={13} strokeWidth={2.2} />
+            Delete
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="dash-list-row">
+      <div className="dash-list-name">
+        <div className="dash-avatar" aria-hidden="true" style={{ background: tint.bg, color: tint.fg, width: 32, height: 32, fontSize: 12 }}>
+          {getInitials(client.name)}
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div className="dash-list-name-text" title={client.name}>{client.name}</div>
+          <div className="dash-list-name-sub">{createdLabel}</div>
+        </div>
+      </div>
+
+      <div className="dash-list-cell">
+        <div className="dash-list-cell-label">Reviews</div>
+        <div className="dash-list-cell-value">{stats.reviewCount}</div>
+      </div>
+      <div className="dash-list-cell">
+        <div className="dash-list-cell-label">Portfolios</div>
+        <div className="dash-list-cell-value">{stats.portfolioCount}</div>
+      </div>
+      <div className="dash-list-cell">
+        <div className="dash-list-cell-label">AUM</div>
+        <div className="dash-list-cell-value">{formatAUM(stats.totalAUM)}</div>
+      </div>
+
+      <div className="dash-status-stack">
+        <StatusChips
+          hasFNASummary={hasFNASummary}
+          hasReviews={hasReviews}
+          reviewCount={stats.reviewCount}
+          onFNAClick={() => onViewFNASummary(client.id)}
+          onReviewsClick={() => onPastReviews(client.id)}
+        />
+      </div>
+
+      <div className="dash-list-row-actions" onClick={(e) => e.stopPropagation()}>
+        <button type="button" className="dash-btn dash-btn-primary" onClick={() => onNewReview(client.id)}>
+          <Plus size={13} strokeWidth={2.6} />
+          New review
+        </button>
+        <button type="button" className="dash-btn dash-btn-success" onClick={() => onFNA(client.id)}>
+          <Scan size={13} strokeWidth={2.4} />
+          Scan FNA
+        </button>
+        <div className="dash-kebab-wrap" ref={menuRef}>
+          <button
+            className="dash-kebab"
+            aria-label="More actions"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((v) => !v)}
+          >
+            <MoreHorizontal size={15} strokeWidth={2.2} />
+          </button>
+          {menuOpen && (
+            <div className="dash-menu" role="menu">
+              {hasFNASummary && (
+                <button className="dash-menu-item" role="menuitem"
+                  onClick={() => { setMenuOpen(false); onViewFNASummary(client.id); }}>
+                  <FileText size={14} strokeWidth={2} />
+                  View FNA summary
+                </button>
+              )}
+              <div className="dash-menu-divider" />
+              <button className="dash-menu-item dash-menu-item-danger" role="menuitem"
+                onClick={() => { setMenuOpen(false); setConfirming(true); }}>
+                <Trash2 size={14} strokeWidth={2} />
+                Delete client
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ViewToggle({ mode, onChange }) {
+  return (
+    <div className="dash-viewtoggle" role="tablist" aria-label="View mode">
+      <button
+        type="button"
+        role="tab"
+        aria-selected={mode === 'cards'}
+        className={`dash-viewtoggle-btn ${mode === 'cards' ? 'is-active' : ''}`}
+        onClick={() => onChange('cards')}
+      >
+        <LayoutGrid size={13} strokeWidth={2.2} />
+        Cards
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={mode === 'list'}
+        className={`dash-viewtoggle-btn ${mode === 'list' ? 'is-active' : ''}`}
+        onClick={() => onChange('list')}
+      >
+        <ListIcon size={13} strokeWidth={2.2} />
+        List
+      </button>
+    </div>
+  );
+}
+
+function AddClientButton({ onCreate }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState('');
+  const wrapRef = useRef(null);
+  const inputRef = useRef(null);
+  useClickAway(wrapRef, () => setOpen(false), open);
+
+  useEffect(() => {
+    if (open) {
+      const id = requestAnimationFrame(() => inputRef.current?.focus());
+      return () => cancelAnimationFrame(id);
+    } else {
+      setName('');
+    }
+  }, [open]);
+
+  const submit = () => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    onCreate(trimmed);
+    setName('');
+    setOpen(false);
+  };
+
+  return (
+    <div className="dash-addclient-wrap" ref={wrapRef}>
+      <button
+        type="button"
+        className="dash-btn dash-btn-primary"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <Plus size={14} strokeWidth={2.6} />
+        Add client
+      </button>
+      {open && (
+        <div className="dash-addclient-popover" role="dialog" aria-label="Add a new client">
+          <input
+            ref={inputRef}
+            type="text"
+            className="dash-addclient-popover-input"
+            placeholder="Client name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') submit();
+              else if (e.key === 'Escape') setOpen(false);
+            }}
+          />
+          <div className="dash-addclient-popover-actions">
+            <button
+              type="button"
+              className="dash-btn dash-btn-ghost"
+              onClick={() => setOpen(false)}
+              style={{ flex: 1, height: 34, fontSize: 13 }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="dash-btn dash-btn-primary"
+              onClick={submit}
+              disabled={!name.trim()}
+              style={{ flex: 1, height: 34, fontSize: 13, ...(!name.trim() ? { opacity: 0.55, cursor: 'not-allowed' } : null) }}
+            >
+              <Plus size={13} strokeWidth={2.6} />
+              Create
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GroupHeader({ label, count, kind }) {
+  return (
+    <div className="dash-group-header">
+      <span className="dash-group-label">{label}</span>
+      <span className={`dash-group-count is-${kind}`}>
+        {count} client{count === 1 ? '' : 's'}
+      </span>
+      <span className="dash-group-line" />
+    </div>
+  );
+}
+
+function LandingPage({
+  clients,
+  reviews,
+  onAddClient,
+  onSelectClient,
+  onDeleteClient,
+  onNewReview,
+  onPastReviews,
+  onLogout,
+  userName,
+  searchQuery,
+  onSearchChange,
+  savedSummaryClientIds,
+}) {
+  const router = useRouter();
+  const [displayedText, setDisplayedText] = useState('');
+  const [viewMode, setViewMode] = useState('cards');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const saved = window.localStorage.getItem('leetstudio_viewmode');
+    if (saved === 'cards' || saved === 'list') setViewMode(saved);
+  }, []);
+
+  const updateViewMode = (m) => {
+    setViewMode(m);
+    if (typeof window !== 'undefined') window.localStorage.setItem('leetstudio_viewmode', m);
+  };
+
+  const fullName = userName || 'Advisor';
+  const fullGreeting = `Hello, ${fullName}`;
+
+  useEffect(() => {
+    setDisplayedText('');
+    let currentIndex = 0;
     const typingInterval = setInterval(() => {
-      if (currentIndex <= fullText.length) {
-        setDisplayedText(fullText.slice(0, currentIndex));
+      if (currentIndex <= fullGreeting.length) {
+        setDisplayedText(fullGreeting.slice(0, currentIndex));
         currentIndex++;
       } else {
         clearInterval(typingInterval);
       }
-    }, 63); // ~63ms per character for natural typing pace
-
+    }, 55);
     return () => clearInterval(typingInterval);
-  }, [userName]);
+  }, [fullGreeting]);
 
-  const handleCreate = () => {
-    if (clientName.trim()) {
-      onAddClient(clientName);
-      setClientName('');
-    }
-  };
-
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter') {
-      handleCreate();
-    }
-  };
-
-  // Filter clients based on search query
   const filteredClients = clients.filter((client) =>
     client.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const getClientStats = (client) => {
-    // Only count SAVED reviews (status: 'extracted')
-    const savedReviews = reviews.filter((r) => r.clientId === client.id && r.status === 'extracted');
-
-    // Calculate total portfolio count from all SAVED reviews
+    const savedReviews = reviews.filter(
+      (r) => r.clientId === client.id && r.status === 'extracted'
+    );
     let totalPortfolios = 0;
     let totalAUM = 0;
     savedReviews.forEach((review) => {
@@ -67,7 +596,6 @@ function LandingPage({ clients, reviews, onAddClient, onSelectClient, onDeleteCl
         });
       }
     });
-
     return {
       reviewCount: savedReviews.length,
       portfolioCount: totalPortfolios,
@@ -75,348 +603,191 @@ function LandingPage({ clients, reviews, onAddClient, onSelectClient, onDeleteCl
     };
   };
 
-  // Format AUM with commas and currency sign
   const formatAUM = (amount) => {
+    if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(amount >= 10_000_000 ? 1 : 2)}M`;
+    if (amount >= 1_000) return `$${(amount / 1_000).toFixed(amount >= 10_000 ? 0 : 1)}K`;
     return `$${amount.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
   };
 
-  return (
-    <div className="gradient-northern-lights" style={{ minHeight: '100vh', padding: '60px 24px', display: 'flex', flexDirection: 'column' }}>
-      {/* Welcome Section */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', marginBottom: '80px' }}>
-        <style>{`
-          @keyframes typing-cursor {
-            0%, 49% { opacity: 1; }
-            50%, 100% { opacity: 0; }
-          }
-          .typing-text {
-            display: inline-block;
-            position: relative;
-          }
-          .typing-cursor {
-            animation: typing-cursor 0.6s infinite;
-            margin-left: 2px;
-          }
-        `}</style>
-        <h1 style={{ fontSize: '58px', fontWeight: '600', marginBottom: '16px', color: '#1a1a1a', letterSpacing: '-1px', fontFamily: "'Albra', sans-serif" }}>
-          <span className="typing-text">
-            {displayedText}
-            {displayedText.length < `Welcome, ${userName || 'Advisor'}`.length && (
-              <span className="typing-cursor">|</span>
-            )}
-          </span>
-        </h1>
-        <p style={{ fontSize: '16px', color: '#666', marginBottom: '40px' }}>
-          Create and manage client portfolios with intelligence
-        </p>
+  const totals = clients.reduce(
+    (acc, c) => {
+      const s = getClientStats(c);
+      acc.reviews += s.reviewCount;
+      acc.portfolios += s.portfolioCount;
+      acc.aum += s.totalAUM;
+      return acc;
+    },
+    { reviews: 0, portfolios: 0, aum: 0 }
+  );
 
-        {/* Input & Create */}
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            gap: '16px',
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              padding: '6px',
-              backgroundColor: 'rgba(255, 255, 255, 0.5)',
-              backdropFilter: 'blur(10px)',
-              borderRadius: '50px',
-              border: '1px solid rgba(255, 255, 255, 0.8)',
-              transition: 'all 0.2s ease',
-            }}
-          >
-            <input
-              type="text"
-              placeholder="Enter your client's name"
-              value={clientName}
-              onChange={(e) => setClientName(e.target.value)}
-              onKeyPress={handleKeyPress}
-              style={{
-                padding: '14px 20px',
-                fontSize: '15px',
-                border: 'none',
-                borderRadius: '50px',
-                width: '330px',
-                backgroundColor: 'transparent',
-                color: '#1a1a1a',
-                transition: 'all 0.2s ease',
-                outline: 'none',
-              }}
+  // Group clients: Active = has saved portfolios; Onboarding = none yet.
+  const groupOf = (client) => {
+    const s = getClientStats(client);
+    return s.portfolioCount > 0 ? 'active' : 'onboarding';
+  };
+
+  const groups = {
+    active: filteredClients.filter((c) => groupOf(c) === 'active'),
+    onboarding: filteredClients.filter((c) => groupOf(c) === 'onboarding'),
+  };
+
+  const isTyping = displayedText.length < fullGreeting.length;
+
+  const renderClientList = (list) => {
+    if (viewMode === 'list') {
+      return (
+        <section className="dash-list" aria-label="Clients list">
+          {list.map((client) => (
+            <ClientListRow
+              key={client.id}
+              client={client}
+              stats={getClientStats(client)}
+              hasFNASummary={savedSummaryClientIds.has(client.id)}
+              onSelect={onSelectClient}
+              onNewReview={onNewReview}
+              onPastReviews={onPastReviews}
+              onFNA={(id) => router.push(`/fna?clientId=${id}`)}
+              onViewFNASummary={(id) => router.push(`/fna-summary-view?clientId=${id}`)}
+              onDelete={onDeleteClient}
+              formatAUM={formatAUM}
             />
-            <button
-              onClick={handleCreate}
-              style={{
-                padding: '12px 18px',
-                backgroundColor: '#FFA366',
-                color: 'white',
-                border: 'none',
-                borderRadius: '45px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '400',
-                transition: 'background-color 0.2s ease',
-                marginLeft: '16px',
-                flexShrink: 0,
-                boxShadow: 'none',
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.backgroundColor = '#FF8F44';
-                e.target.style.boxShadow = 'none';
-                e.target.style.transform = 'none';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.backgroundColor = '#FFA366';
-                e.target.style.boxShadow = 'none';
-                e.target.style.transform = 'none';
-              }}
-            >
-              Create
-            </button>
+          ))}
+        </section>
+      );
+    }
+    return (
+      <section className="dash-grid">
+        {list.map((client, idx) => (
+          <ClientCardItem
+            key={client.id}
+            client={client}
+            index={idx}
+            stats={getClientStats(client)}
+            hasFNASummary={savedSummaryClientIds.has(client.id)}
+            onSelect={onSelectClient}
+            onNewReview={onNewReview}
+            onPastReviews={onPastReviews}
+            onFNA={(id) => router.push(`/fna?clientId=${id}`)}
+            onViewFNASummary={(id) => router.push(`/fna-summary-view?clientId=${id}`)}
+            onDelete={onDeleteClient}
+            formatAUM={formatAUM}
+          />
+        ))}
+      </section>
+    );
+  };
+
+  return (
+    <div className="dash-root">
+      <header className="dash-topbar">
+        <div className="dash-brand">
+          <BrandMark />
+          <span>Leet Studio</span>
+        </div>
+        <div className="dash-topbar-right">
+          {clients.length > 0 && (
+            <div className="dash-search" role="search">
+              <span className="dash-search-icon">
+                <Search size={15} strokeWidth={2} />
+              </span>
+              <input
+                type="text"
+                placeholder="Search clients"
+                value={searchQuery}
+                onChange={(e) => onSearchChange(e.target.value)}
+                aria-label="Search clients"
+              />
+            </div>
+          )}
+          {clients.length > 0 && <ViewToggle mode={viewMode} onChange={updateViewMode} />}
+          <AddClientButton onCreate={onAddClient} />
+          <button className="dash-btn dash-btn-ghost" onClick={onLogout}>
+            <LogOut size={14} strokeWidth={2} />
+            Log out
+          </button>
+        </div>
+      </header>
+
+      <main className="dash-container">
+        <section className="dash-welcome">
+          <div>
+            <h1>
+              {displayedText}
+              {isTyping && <span className="dash-typing-cursor" aria-hidden="true" />}
+            </h1>
+            <p>Create and review client portfolios with AI-assisted analysis.</p>
           </div>
-        </div>
-      </div>
+        </section>
 
-      {/* Search Bar - Removed (now in top-right header) */}
+        {clients.length > 0 && (
+          <section className="dash-stats" aria-label="Portfolio totals">
+            <div className="dash-stat">
+              <div className="dash-stat-icon is-accent" aria-hidden="true">
+                <Users size={15} strokeWidth={2.2} />
+              </div>
+              <div className="dash-stat-content">
+                <span className="dash-stat-label">Clients</span>
+                <span className="dash-stat-value">{clients.length}</span>
+              </div>
+            </div>
+            <div className="dash-stat">
+              <div className="dash-stat-icon is-review" aria-hidden="true">
+                <FileText size={15} strokeWidth={2.2} />
+              </div>
+              <div className="dash-stat-content">
+                <span className="dash-stat-label">Reviews completed</span>
+                <span className="dash-stat-value">{totals.reviews}</span>
+              </div>
+            </div>
+            <div className="dash-stat">
+              <div className="dash-stat-icon is-success" aria-hidden="true">
+                <Wallet size={15} strokeWidth={2.2} />
+              </div>
+              <div className="dash-stat-content">
+                <span className="dash-stat-label">Assets under review</span>
+                <span className="dash-stat-value">{formatAUM(totals.aum)}</span>
+              </div>
+            </div>
+          </section>
+        )}
 
-      {/* Client Cards Grid */}
-      {clients.length > 0 && (
-        <div style={{
-          display: filteredClients.length < 4 ? 'flex' : 'block',
-          justifyContent: filteredClients.length < 4 ? 'center' : 'initial',
-          width: '100%',
-          padding: '0 24px',
-        }}>
-          <div
-            className="client-cards-grid"
-            style={{
-              gridTemplateColumns: filteredClients.length < 4
-                ? `repeat(${filteredClients.length}, 320px)`
-                : 'repeat(4, 1fr)',
-              width: filteredClients.length < 4 ? 'fit-content' : '100%',
-            }}
-          >
-            {filteredClients.map((client) => {
-              const stats = getClientStats(client);
-              const handleDeleteClick = (e) => {
-                e.stopPropagation();
-                if (window.confirm(`Delete client "${client.name}" and all their portfolios?`)) {
-                  onDeleteClient(client.id);
-                }
-              };
-              return (
-                <div
-                  key={client.id}
-                  onClick={() => onSelectClient(client.id)}
-                  style={{
-                    padding: '20px',
-                    borderRadius: '22px',
-                    backgroundColor: 'rgba(255, 255, 255, 0.6)',
-                    backdropFilter: 'blur(20px)',
-                    border: '1px solid rgba(255, 255, 255, 0.8)',
-                    cursor: 'pointer',
-                    transition: 'all 0.3s ease',
-                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08)',
-                    position: 'relative',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
-                    e.currentTarget.style.transform = 'translateY(-4px)';
-                    e.currentTarget.style.boxShadow = '0 12px 48px rgba(0, 0, 0, 0.12)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.6)';
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.08)';
-                  }}
-                >
-                  {/* Delete Button */}
-                  <button
-                    onClick={handleDeleteClick}
-                    title="Delete"
-                    style={{
-                      position: 'absolute',
-                      top: '12px',
-                      right: '12px',
-                      backgroundColor: 'transparent',
-                      border: 'none',
-                      borderRadius: '0px',
-                      padding: '4px',
-                      cursor: 'pointer',
-                      fontSize: '20px',
-                      fontFamily: 'monospace',
-                      fontWeight: '100',
-                      color: '#d0d0d0',
-                      transition: 'color 0.2s ease',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: '28px',
-                      height: '28px',
-                      lineHeight: '1',
-                      boxShadow: 'none',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.color = '#666666';
-                      e.currentTarget.style.boxShadow = 'none';
-                      e.currentTarget.style.transform = 'none';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.color = '#d0d0d0';
-                      e.currentTarget.style.boxShadow = 'none';
-                      e.currentTarget.style.transform = 'none';
-                    }}
-                  >
-                    ×
-                  </button>
-
-                  <h3 style={{ margin: '0 0 16px 0', fontSize: '20px', fontWeight: '600', color: '#1a1a1a' }}>
-                    {client.name}
-                  </h3>
-                  <div style={{ display: 'grid', gap: '12px', marginBottom: '16px' }}>
-                    <div>
-                      <p style={{ margin: '0 0 4px 0', fontSize: '12px', color: '#999' }}>Reviews Done</p>
-                      <p style={{ margin: '0', fontSize: '18px', fontWeight: '600', color: '#1a1a1a' }}>
-                        {stats.reviewCount}
-                      </p>
-                    </div>
-                    <div>
-                      <p style={{ margin: '0 0 4px 0', fontSize: '12px', color: '#999' }}>Portfolios</p>
-                      <p style={{ margin: '0', fontSize: '18px', fontWeight: '600', color: '#1a1a1a' }}>
-                        {stats.portfolioCount}
-                      </p>
-                    </div>
-                    <div>
-                      <p style={{ margin: '0 0 4px 0', fontSize: '12px', color: '#999' }}>Total AUM</p>
-                      <p style={{ margin: '0', fontSize: '18px', fontWeight: '600', color: '#1a1a1a' }}>
-                        {formatAUM(stats.totalAUM)}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <div style={{ display: 'flex', gap: '12px' }}>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onNewReview(client.id);
-                        }}
-                        style={{
-                          flex: 1,
-                          padding: '10px 16px',
-                          backgroundColor: '#FFA366',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '22px',
-                          cursor: 'pointer',
-                          fontSize: '13px',
-                          fontWeight: '500',
-                          transition: 'background-color 0.2s ease',
-                          fontFamily: "'Poppins', sans-serif",
-                        }}
-                        onMouseEnter={(e) => e.target.style.backgroundColor = '#FF8F44'}
-                        onMouseLeave={(e) => e.target.style.backgroundColor = '#FFA366'}
-                      >
-                        New Review
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onPastReviews(client.id);
-                        }}
-                        style={{
-                          flex: 1,
-                          padding: '10px 16px',
-                          backgroundColor: '#e8e8e8',
-                          color: '#1a1a1a',
-                          border: 'none',
-                          borderRadius: '22px',
-                          cursor: 'pointer',
-                          fontSize: '13px',
-                          fontWeight: '500',
-                          transition: 'background-color 0.2s ease',
-                          fontFamily: "'Poppins', sans-serif",
-                          opacity: stats.reviewCount > 0 ? 1 : 0.5,
-                        }}
-                        disabled={stats.reviewCount === 0}
-                        onMouseEnter={(e) => {
-                          if (stats.reviewCount > 0) e.target.style.backgroundColor = '#d0d0d0';
-                        }}
-                        onMouseLeave={(e) => e.target.style.backgroundColor = '#e8e8e8'}
-                      >
-                        Past Reviews
-                      </button>
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        router.push(`/fna?clientId=${client.id}`);
-                      }}
-                      style={{
-                        width: '100%',
-                        padding: '10px 16px',
-                        backgroundColor: '#FF8F44',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '22px',
-                        cursor: 'pointer',
-                        fontSize: '13px',
-                        fontWeight: '500',
-                        transition: 'background-color 0.2s ease',
-                        fontFamily: "'Poppins', sans-serif",
-                      }}
-                      onMouseEnter={(e) => e.target.style.backgroundColor = '#FF7A1F'}
-                      onMouseLeave={(e) => e.target.style.backgroundColor = '#FF8F44'}
-                    >
-                      Financial Needs Analysis
-                    </button>
-                    {savedSummaryClientIds.has(client.id) && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/fna-summary-view?clientId=${client.id}`);
-                        }}
-                        style={{
-                          width: '100%',
-                          padding: '10px 16px',
-                          backgroundColor: '#28a745',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '22px',
-                          cursor: 'pointer',
-                          fontSize: '13px',
-                          fontWeight: '500',
-                          transition: 'background-color 0.2s ease',
-                          fontFamily: "'Poppins', sans-serif",
-                        }}
-                        onMouseEnter={(e) => e.target.style.backgroundColor = '#218838'}
-                        onMouseLeave={(e) => e.target.style.backgroundColor = '#28a745'}
-                      >
-                        ✓ View FNA Summary
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+        {clients.length === 0 ? (
+          <div className="dash-empty">
+            <div className="dash-empty-icon">
+              <Users size={20} strokeWidth={2} />
+            </div>
+            <div className="dash-empty-title">No clients yet</div>
+            <div className="dash-empty-body">
+              Hit <strong>Add client</strong> in the top bar to create your first profile.
+            </div>
           </div>
-        </div>
-      )}
-
-      {/* No Results Message */}
-      {clients.length > 0 && filteredClients.length === 0 && (
-        <div style={{ textAlign: 'center', marginTop: '40px' }}>
-          <p style={{ fontSize: '16px', color: '#999' }}>
-            No clients found matching "{searchQuery}"
-          </p>
-        </div>
-      )}
+        ) : searchQuery && filteredClients.length === 0 ? (
+          <div className="dash-empty">
+            <div className="dash-empty-title">No matches</div>
+            <div className="dash-empty-body">
+              Nothing matches “{searchQuery}”. Try a different name or clear the search.
+            </div>
+          </div>
+        ) : searchQuery ? (
+          // Flat results during search — grouping would obscure the find.
+          renderClientList(filteredClients)
+        ) : (
+          <>
+            {groups.active.length > 0 && (
+              <>
+                <GroupHeader label="Active" count={groups.active.length} kind="active" />
+                {renderClientList(groups.active)}
+              </>
+            )}
+            {groups.onboarding.length > 0 && (
+              <>
+                <GroupHeader label="Onboarding" count={groups.onboarding.length} kind="onboarding" />
+                {renderClientList(groups.onboarding)}
+              </>
+            )}
+          </>
+        )}
+      </main>
     </div>
   );
 }
@@ -518,32 +889,14 @@ export default function Home() {
 
   const handleAddClient = (name) => {
     console.log('[App] handleAddClient:', { name });
-
     const newClient = {
       id: generateId(),
       name,
       createdAt: new Date().toISOString(),
       reviews: [],
     };
-
-    console.log('[App] Created new client:', newClient);
     setClients([...clients, newClient]);
-
-    // Create a new review and navigate to upload view
-    const reviewId = generateId();
-    const newReview = {
-      id: reviewId,
-      clientId: newClient.id,
-      reviewName: '',
-      createdAt: new Date().toISOString(),
-      status: 'not_started',
-      holdingsSets: [],
-    };
-
-    setReviews([...reviews, newReview]);
-    setSelectedClientId(newClient.id);
-    setSelectedReviewId(reviewId);
-    setCurrentView('upload');
+    // Stay on dashboard — no auto-created review, no view change.
   };
 
   const handleDeleteClient = (clientId) => {
@@ -743,81 +1096,20 @@ export default function Home() {
   return (
     <>
       {currentView === 'dashboard' && (
-        <div>
-          <LandingPage
-            clients={clients}
-            reviews={reviews}
-            onAddClient={handleAddClient}
-            onSelectClient={handleSelectClient}
-            onDeleteClient={handleDeleteClient}
-            onNewReview={handleNewReview}
-            onPastReviews={handlePastReviews}
-            userName={userProfile?.displayName || user?.displayName || user?.email?.split('@')[0] || 'Advisor'}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            savedSummaryClientIds={savedSummaryClientIds}
-          />
-          {/* Search Bar & Logout Button */}
-          <div style={{ position: 'fixed', top: '20px', right: '20px', display: 'flex', gap: '12px', alignItems: 'center', zIndex: 1000 }}>
-            {/* Search Bar */}
-            {clients.length > 0 && (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '4px 8px',
-                  gap: '6px',
-                  backgroundColor: 'rgba(255, 255, 255, 0.5)',
-                  backdropFilter: 'blur(10px)',
-                  borderRadius: '50px',
-                  border: '1px solid rgba(255, 255, 255, 0.8)',
-                  transition: 'all 0.2s ease',
-                  width: '280px',
-                }}
-              >
-                <input
-                  type="text"
-                  placeholder="Search clients..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  style={{
-                    padding: '0 8px',
-                    fontSize: '14px',
-                    border: 'none',
-                    borderRadius: '45px',
-                    flex: 1,
-                    backgroundColor: 'transparent',
-                    color: '#1a1a1a',
-                    outline: 'none',
-                    fontFamily: "'Poppins', sans-serif",
-                  }}
-                />
-                <span style={{ padding: '0 8px', color: '#999', fontSize: '16px' }}>🔍</span>
-              </div>
-            )}
-            <button
-              onClick={handleLogout}
-              style={{
-                padding: '10px 20px',
-                backgroundColor: '#FFA366',
-                color: 'white',
-                border: 'none',
-                borderRadius: '45px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '400',
-                transition: 'background-color 0.2s ease',
-                fontFamily: "'Poppins', sans-serif",
-                whiteSpace: 'nowrap',
-              }}
-              onMouseEnter={(e) => (e.target.style.backgroundColor = '#FF8F44')}
-              onMouseLeave={(e) => (e.target.style.backgroundColor = '#FFA366')}
-            >
-              Logout
-            </button>
-          </div>
-        </div>
+        <LandingPage
+          clients={clients}
+          reviews={reviews}
+          onAddClient={handleAddClient}
+          onSelectClient={handleSelectClient}
+          onDeleteClient={handleDeleteClient}
+          onNewReview={handleNewReview}
+          onPastReviews={handlePastReviews}
+          onLogout={handleLogout}
+          userName={userProfile?.displayName || user?.displayName || user?.email?.split('@')[0] || 'Advisor'}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          savedSummaryClientIds={savedSummaryClientIds}
+        />
       )}
 
       {currentView === 'upload' && selectedReviewId && (

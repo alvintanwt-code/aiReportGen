@@ -1,28 +1,22 @@
 'use client';
 
-export default function UploadPlaceholder({ onBack }) {
-  console.log('[UploadPlaceholder] Rendered');
+import { ArrowLeft } from 'lucide-react';
 
+export default function UploadPlaceholder({ onBack }) {
   return (
-    <div style={{ padding: '40px', textAlign: 'center' }}>
-      <h1>Upload Page Coming in Phase 2</h1>
-      <p style={{ color: '#666', marginBottom: '30px' }}>
-        This is where you'll upload portfolio screenshots and extract holdings.
-      </p>
-      <button
-        onClick={onBack}
-        style={{
-          padding: '10px 20px',
-          fontSize: '16px',
-          backgroundColor: '#007bff',
-          color: 'white',
-          border: 'none',
-          borderRadius: '4px',
-          cursor: 'pointer',
-        }}
-      >
-        ← Back to Dashboard
-      </button>
+    <div className="dash-root dash-upload">
+      <div className="dash-upload-body no-rail">
+        <div className="dash-panel" style={{ textAlign: 'center', padding: '56px 24px' }}>
+          <div className="dash-h2">Upload coming in phase 2</div>
+          <p className="dash-section-sub" style={{ marginTop: 8, marginBottom: 20 }}>
+            This is where you'll upload portfolio screenshots and extract holdings.
+          </p>
+          <button className="dash-btn dash-btn-ghost" onClick={onBack}>
+            <ArrowLeft size={14} strokeWidth={2.2} />
+            Back to dashboard
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

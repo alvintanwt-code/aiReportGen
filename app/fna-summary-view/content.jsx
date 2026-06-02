@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { ArrowLeft, AlertCircle } from 'lucide-react';
 import { auth } from '../../lib/firebase';
 import { loadFNASummary } from '../../lib/firebaseUtils';
 import FNASummaryDashboard from '../../components/FNASummaryDashboard';
@@ -17,18 +18,14 @@ export default function FNASummaryViewContent() {
   useEffect(() => {
     const loadSummary = async () => {
       if (!auth.currentUser || !clientId) {
-        setError('Missing user or client ID');
+        setError('Missing user or client ID.');
         setIsLoading(false);
         return;
       }
-
       try {
         const summary = await loadFNASummary(auth.currentUser.uid, clientId);
-        if (summary) {
-          setSavedSummary(summary);
-        } else {
-          setError('No saved FNA summary found for this client');
-        }
+        if (summary) setSavedSummary(summary);
+        else setError('No saved FNA summary was found for this client.');
       } catch (err) {
         console.error('Error loading summary:', err);
         setError('Failed to load summary: ' + err.message);
@@ -36,75 +33,65 @@ export default function FNASummaryViewContent() {
         setIsLoading(false);
       }
     };
-
     loadSummary();
   }, [clientId]);
 
   if (isLoading) {
     return (
-      <div style={{ padding: '40px', textAlign: 'center' }}>
-        <p>Loading saved summary...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div style={{ padding: '40px' }}>
-        <button
-          onClick={() => router.push('/')}
-          style={{
-            padding: '10px 16px',
-            backgroundColor: '#f0f0f0',
-            border: '1px solid #ddd',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            marginBottom: '20px',
-          }}
-        >
-          ← Back to Dashboard
-        </button>
-        <div style={{
-          padding: '20px',
-          backgroundColor: '#f8d7da',
-          color: '#721c24',
-          borderRadius: '4px',
-          border: '1px solid #f5c6cb',
-        }}>
-          <strong>Error:</strong> {error}
+      <div className="dash-root" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh' }}>
+        <div className="dash-status">
+          <div className="dash-spinner" />
+          <div className="dash-status-title">Loading saved summary…</div>
         </div>
       </div>
     );
   }
 
-  if (!savedSummary) {
+  if (error || !savedSummary) {
     return (
-      <div style={{ padding: '40px' }}>
-        <button
-          onClick={() => router.push('/')}
-          style={{
-            padding: '10px 16px',
-            backgroundColor: '#f0f0f0',
-            border: '1px solid #ddd',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            marginBottom: '20px',
-          }}
-        >
-          ← Back to Dashboard
-        </button>
-        <p>No summary data found</p>
+      <div className="dash-root dash-upload">
+        <header className="dash-upload-header">
+          <div className="dash-upload-header-left">
+            <button className="dash-back" onClick={() => router.push('/')}>
+              <ArrowLeft size={14} strokeWidth={2.2} />
+              Dashboard
+            </button>
+          </div>
+        </header>
+        <div className="dash-upload-body no-rail">
+          <main>
+            <div className="dash-banner dash-banner-danger" role="alert" style={{ marginTop: 24 }}>
+              <span className="dash-banner-icon">
+                <AlertCircle size={15} strokeWidth={2.2} />
+              </span>
+              <span>{error || 'No summary data found.'}</span>
+            </div>
+          </main>
+        </div>
       </div>
     );
   }
 
+  const handleContinue = () => {
+    const data = savedSummary.extractedData;
+    sessionStorage.setItem(`fna_${clientId}`, JSON.stringify(data));
+    sessionStorage.setItem(
+      `fna_metrics_${clientId}`,
+      JSON.stringify({
+        age: data.personalInfo?.age,
+        assets: data.assets,
+        liabilities: data.liabilities,
+        cashflow: data.cashflow,
+      })
+    );
+    router.push(`/fna-4factors?clientId=${clientId}`);
+  };
+
   return (
-    <div>
-      <FNASummaryDashboard
-        extractedData={savedSummary.extractedData}
-        onContinue={() => router.push(`/fna-4factors?clientId=${clientId}`)}
-        isViewingArchive={true}
-      />
-    </div>
+    <FNASummaryDashboard
+      extractedData={savedSummary.extractedData}
+      onContinue={handleContinue}
+      isViewingArchive={true}
+    />
   );
 }

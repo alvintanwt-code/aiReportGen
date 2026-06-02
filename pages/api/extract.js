@@ -1,10 +1,12 @@
 import { IncomingForm } from 'formidable';
 import fs from 'fs';
+import { getAdvisorSystemBlocks } from '../../lib/advisorSystem';
 
 export const config = {
   api: {
     bodyParser: false,
   },
+  maxDuration: 60,
 };
 
 /**
@@ -78,12 +80,13 @@ export default async function handler(req, res) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'x-api-key': process.env.LEET_ANTHROPIC_KEY,
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
         model: 'claude-opus-4-6',
         max_tokens: 4096,
+        system: getAdvisorSystemBlocks(),
         messages: [
           {
             role: 'user',
