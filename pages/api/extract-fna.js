@@ -56,8 +56,21 @@ CASHFLOW:
 - Monthly income (employment)
 - Other income (bonuses, dividends, etc.)
 - Rental income
-- Net investment RSP (Regular Savings Plan)
-- Net expenses (total monthly expenses)
+- Regular investment (cash) — store this in "netInvestmentRSP":
+    * The PRIMARY label to look for is "Regular Investment (Cash)" — capture this verbatim line if present.
+    * Other valid labels: "Regular Savings Plan", "RSP", "Regular Investment", "Monthly Investment Contribution".
+    * Found under the "Outflow" or "Monthly Outflows" section of the FNA.
+    * Semantically: monthly cash the client is currently directing INTO investments. This is wealth-building,
+      NOT consumption.
+    * If multiple regular investment lines exist (e.g. one to RSP, one to ILP, one to SRS top-up), SUM them.
+    * Do NOT include insurance premiums here (those belong under expenses.insurance).
+    * Do NOT include CPF contributions here (those are auto-deducted from gross income, not declared outflows).
+- Net expenses (total monthly expenses):
+    * Strictly fixed + variable consumption items: housing, food, transport, utilities, insurance premiums,
+      lifestyle, children's education, parents allowance, healthcare, other.
+    * EXCLUDE regular investment / RSP — even though it appears as an outflow on the FNA, it is wealth-building,
+      not an expense. It belongs in netInvestmentRSP, not netExpenses.
+    * EXCLUDE CPF contributions (already auto-deducted from gross income).
 - Expense BREAKDOWN — extract each line item even if it is small:
   - Housing (rent + utilities housing portion if combined)
   - Food

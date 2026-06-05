@@ -2,7 +2,22 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  ReferenceLine,
+  ReferenceDot,
+  Area,
+  AreaChart,
+} from 'recharts';
 import { ArrowLeft, ArrowRight, TrendingUp, TrendingDown, FileSearch, AlertTriangle, ChevronRight } from 'lucide-react';
 import { auth } from '../lib/firebase';
 import { saveFNASummary } from '../lib/firebaseUtils';
@@ -28,7 +43,7 @@ const PHASE_BANDS = [
   { min: 90, max: Infinity, label: 'Work Optional',    description: 'Math passes the 25× test. Focus on legacy and control.' },
 ];
 
-function computeFIMetrics(extractedData, overrideTargetAge) {
+function computeFIMetrics(extractedData, overrideTargetAge, overrides = {}) {
   const age = extractedData.personalInfo?.age || 0;
   const extractedTarget = extractedData.personalInfo?.targetWorkOptionalAge || 0;
   const targetAge = overrideTargetAge || extractedTarget || DEFAULT_TARGET_AGE;
@@ -41,6 +56,16 @@ function computeFIMetrics(extractedData, overrideTargetAge) {
   const monthlySavings = monthlyIncome - monthlyExpenses;
   const annualExpenses = monthlyExpenses * 12;
   const annualSavings = Math.max(0, monthlySavings * 12);
+
+  // Monthly investment = "Regular Investment (Cash)" line from FNA. This is
+  // wealth-building cash actually being directed to investments — distinct
+  // from total savings (income − expenses), which is the *ceiling* if all
+  // surplus were redirected. Override lets the advisor stress-test what-if.
+  const extractedMonthlyInvestment = extractedData.cashflow?.netInvestmentRSP || 0;
+  const monthlyInvestment = overrides.monthlyInvestment != null
+    ? overrides.monthlyInvestment
+    : extractedMonthlyInvestment;
+  const annualInvestmentActual = Math.max(0, monthlyInvestment * 12);
 
   // Non-CPF liquid carries the bridge years (CPF can't be drawn before 55/65)
   const nonCPFLiquid =
@@ -65,13 +90,18 @@ function computeFIMetrics(extractedData, overrideTargetAge) {
   const isDrawdown = yearsToTarget === 0;
   const bridgeYears = Math.max(0, CPF_LIFE_START_AGE - Math.max(age, targetAge));
 
+  // Honest projection — uses actual annual investment contribution, not the
+  // theoretical "could be invested if all surplus redirected" ceiling.
   let projectedLiquidAtTarget;
+  let projectedLiquidAtTargetUpside;
   if (isDrawdown) {
     projectedLiquidAtTarget = nonCPFLiquid;
+    projectedLiquidAtTargetUpside = nonCPFLiquid;
   } else {
     const growthFactor = Math.pow(1 + BLENDED_RETURN, yearsToTarget);
     const annuityFactor = (growthFactor - 1) / BLENDED_RETURN;
-    projectedLiquidAtTarget = nonCPFLiquid * growthFactor + annualSavings * annuityFactor;
+    projectedLiquidAtTarget = nonCPFLiquid * growthFactor + annualInvestmentActual * annuityFactor;
+    projectedLiquidAtTargetUpside = nonCPFLiquid * growthFactor + annualSavings * annuityFactor;
   }
 
   const post65AnnualGap = Math.max(0, annualExpenses - annualCPFLifeIncome);
@@ -97,13 +127,17 @@ function computeFIMetrics(extractedData, overrideTargetAge) {
     monthlyIncome,
     monthlyExpenses,
     monthlySavings,
+    monthlyInvestment,
+    monthlyInvestmentFromExtraction: extractedMonthlyInvestment,
     annualExpenses,
-    annualSavings,
+    annualSavings,            // ceiling: income − expenses
+    annualInvestmentActual,   // honest: what's actually flowing to investments
     nonCPFLiquid,
     cpfRetirement,
     projectedCPFAtPayout,
     annualCPFLifeIncome,
-    projectedLiquidAtTarget,
+    projectedLiquidAtTarget,         // honest projection
+    projectedLiquidAtTargetUpside,   // potential ceiling
     requiredNestEgg,
     bridgeCost,
     post65NestEgg,
@@ -114,6 +148,47 @@ function computeFIMetrics(extractedData, overrideTargetAge) {
     phaseDescription: band.description,
     positionInPhase,
   };
+}
+
+/**
+ * Build the asset progression line for the hero chart.
+ *
+ * Returns an array of points from currentAge to endAge. Each point compounds at
+ * the blended return rate. While age < drawdownAge, the annual contribution is
+ * added each year (accumulation). After drawdownAge, the post-65 expense gap
+ * (annualExpenses − CPF Life income) is withdrawn each year (drawdown).
+ *
+ * Used twice per render — once for the honest line (annualInvestmentActual),
+ * once for the potential ceiling (annualSavings).
+ */
+function buildAssetProjection({
+  currentAge,
+  endAge,
+  startingValue,
+  annualContribution,
+  drawdownAge,
+  annualWithdrawal,
+  cpfLifeStartAge,
+  annualCPFLifeIncome,
+}) {
+  const r = BLENDED_RETURN;
+  const points = [];
+  let value = startingValue;
+  for (let a = currentAge; a <= endAge; a++) {
+    points.push({ age: a, value: Math.max(0, Math.round(value)) });
+    // Step to next year: grow + (contribute or withdraw)
+    value = value * (1 + r);
+    if (a < drawdownAge) {
+      value += annualContribution;
+    } else {
+      // After drawdown begins. CPF Life relieves the gap from cpfLifeStartAge onward.
+      const cpfRelief = a >= cpfLifeStartAge ? annualCPFLifeIncome : 0;
+      const netWithdraw = Math.max(0, annualWithdrawal - cpfRelief);
+      value -= netWithdraw;
+    }
+    if (value < 0) value = 0;
+  }
+  return points;
 }
 
 // Deterministic insight — picks the most useful lever for this client's FI situation.
@@ -817,6 +892,7 @@ export default function FNASummaryDashboard({ extractedData, onContinue }) {
   const clientId = searchParams.get('clientId');
   const [isSaving, setIsSaving] = useState(false);
   const [targetAgeOverride, setTargetAgeOverride] = useState(null);
+  const [totalContributedOverride, setTotalContributedOverride] = useState(null);
 
   const metrics = useMemo(() => {
     const fi = computeFIMetrics(extractedData, targetAgeOverride);
@@ -868,6 +944,56 @@ export default function FNASummaryDashboard({ extractedData, onContinue }) {
     };
   }, [extractedData, targetAgeOverride]);
 
+  // Chart data — projects the portfolio forward, with drawdown after targetAge.
+  // Returns two lines: honest (current pace) and potential (if all surplus invested).
+  const chartData = useMemo(() => {
+    const startingValue = metrics.nonCPFLiquid;
+    const drawdownAge = metrics.targetAge;
+    const endAge = 85;
+    const honest = buildAssetProjection({
+      currentAge: metrics.age,
+      endAge,
+      startingValue,
+      annualContribution: metrics.annualInvestmentActual,
+      drawdownAge,
+      annualWithdrawal: metrics.annualExpenses,
+      cpfLifeStartAge: CPF_LIFE_START_AGE,
+      annualCPFLifeIncome: metrics.annualCPFLifeIncome,
+    });
+    const potential = buildAssetProjection({
+      currentAge: metrics.age,
+      endAge,
+      startingValue,
+      annualContribution: metrics.annualSavings,
+      drawdownAge,
+      annualWithdrawal: metrics.annualExpenses,
+      cpfLifeStartAge: CPF_LIFE_START_AGE,
+      annualCPFLifeIncome: metrics.annualCPFLifeIncome,
+    });
+    return honest.map((p, i) => ({
+      age: p.age,
+      honest: p.value,
+      potential: potential[i]?.value || p.value,
+    }));
+  }, [metrics]);
+
+  const chartDerived = useMemo(() => {
+    const drawdownPoint = chartData.find((p) => p.age === metrics.targetAge);
+    const projectedAtDrawdown = drawdownPoint ? drawdownPoint.honest : 0;
+    const sustainPoint = chartData.find((p) => p.age > metrics.targetAge && p.honest <= 0);
+    const sustainAge = sustainPoint ? sustainPoint.age : 85;
+    const minAge = metrics.age;
+    const maxAge = 85;
+    const tickStep = 10;
+    const xAxisTicks = [];
+    for (let a = Math.ceil(minAge / tickStep) * tickStep; a <= maxAge; a += tickStep) {
+      xAxisTicks.push(a);
+    }
+    if (!xAxisTicks.includes(metrics.targetAge)) xAxisTicks.push(metrics.targetAge);
+    xAxisTicks.sort((a, b) => a - b);
+    return { projectedAtDrawdown, sustainAge, xAxisTicks };
+  }, [chartData, metrics.targetAge, metrics.age]);
+
   useEffect(() => {
     const autoSave = async () => {
       if (!auth.currentUser || !clientId || !extractedData) return;
@@ -890,6 +1016,12 @@ export default function FNASummaryDashboard({ extractedData, onContinue }) {
   }, [clientId, extractedData, metrics]);
 
   const formatCurrency = (value) => `S$${Math.round(value).toLocaleString('en-SG')}`;
+  const formatCompact = (value) => {
+    const n = Math.abs(value);
+    if (n >= 1_000_000) return `S$${(value / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1)}M`;
+    if (n >= 1_000) return `S$${Math.round(value / 1_000)}k`;
+    return `S$${Math.round(value)}`;
+  };
 
   const assetBreakdown = [
     { name: 'Cash', value: extractedData.assets?.cashSavings || 0 },
@@ -931,360 +1063,342 @@ export default function FNASummaryDashboard({ extractedData, onContinue }) {
             Age {metrics.age} · Generated today {isSaving && <span style={{ color: 'var(--subtle)' }}>· saving…</span>}
           </p>
 
-          {/* Hero: Work Optional Index */}
+          {/* Hero: Asset Progression — line chart with drawdown reference + dual contribution lines */}
           <section className="dash-panel" style={{ marginBottom: 18, padding: 28 }}>
+            <style>{`
+              .target-age-slider {
+                -webkit-appearance: none;
+                appearance: none;
+                width: 100%;
+                height: 4px;
+                background: var(--slate-200);
+                border-radius: 2px;
+                outline: none;
+                margin: 0;
+              }
+              .target-age-slider::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                appearance: none;
+                width: 18px;
+                height: 18px;
+                background: var(--accent-500);
+                border: 3px solid white;
+                border-radius: 50%;
+                cursor: pointer;
+                box-shadow: 0 1px 4px rgba(99,91,255,0.35);
+                transition: transform 0.15s ease;
+              }
+              .target-age-slider::-webkit-slider-thumb:hover { transform: scale(1.1); }
+              .target-age-slider::-moz-range-thumb {
+                width: 18px;
+                height: 18px;
+                background: var(--accent-500);
+                border: 3px solid white;
+                border-radius: 50%;
+                cursor: pointer;
+                box-shadow: 0 1px 4px rgba(99,91,255,0.35);
+              }
+            `}</style>
             <div className="dash-eyebrow" style={{ marginBottom: 8 }}>Wealth trajectory</div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 18 }}>
-              <h2 className="dash-h2">Work Optional Index</h2>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+              <h2 className="dash-h2">Asset Progression</h2>
               <span style={{ fontSize: 13, color: 'var(--muted)' }}>
-                Position on the wealth journey
+                Current liquid investments + projection to age 85, with drawdown
               </span>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 36, alignItems: 'start' }}>
+            {/* Three-up summary: current, projected, sustains */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, 1fr)',
+                gap: 24,
+                marginBottom: 22,
+                paddingBottom: 18,
+                borderBottom: '1px solid var(--border)',
+              }}
+            >
               <div>
-                {/* Phase banner — narrowed to the arc column so it doesn't stretch the panel */}
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 12,
-                    padding: '10px 14px',
-                    background: 'var(--accent-50)',
-                    borderLeft: '3px solid var(--accent-500)',
-                    borderRadius: 'var(--r-md)',
-                    marginBottom: 14,
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-                    <h3 style={{ fontSize: 14.5, fontWeight: 700, color: 'var(--accent-700)', margin: 0 }}>
-                      {metrics.phase}
-                    </h3>
-                    <p style={{ fontSize: 12.5, color: 'var(--accent-700)', opacity: 0.85, margin: 0, lineHeight: 1.5 }}>
-                      {metrics.phaseDescription}
-                    </p>
-                  </div>
-                  <span
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      color: positivetraj ? 'var(--success-600)' : 'var(--danger-600)',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {positivetraj ? <TrendingUp size={12} strokeWidth={2.4} /> : <TrendingDown size={12} strokeWidth={2.4} />}
-                    {positivetraj ? 'Moving forward' : 'Needs attention'}
-                  </span>
+                <div className="dash-eyebrow">Current value</div>
+                <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--text)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.01em', marginTop: 2 }}>
+                  {formatCurrency(metrics.nonCPFLiquid)}
                 </div>
-
-                <svg viewBox="0 0 280 180" style={{ width: '100%', height: 'auto' }}>
-                  <path
-                    d="M 40 140 A 120 120 0 0 1 240 140"
-                    fill="none"
-                    stroke="var(--slate-200)"
-                    strokeWidth="14"
-                    strokeLinecap="round"
-                    pathLength="100"
-                  />
-                  <path
-                    d="M 40 140 A 120 120 0 0 1 240 140"
-                    fill="none"
-                    stroke="var(--accent-500)"
-                    strokeWidth="14"
-                    strokeLinecap="round"
-                    pathLength="100"
-                    strokeDasharray={`${metrics.scoreOut100} 100`}
-                    style={{ transition: 'stroke-dasharray 0.6s ease-out' }}
-                  />
-                  {/* Tick marks — minor every 10%, labelled major ticks at the band boundaries.
-                      Arc geometry: center (140, 206.33), radius 120, sweeps from θ≈-2.556 rad to θ≈-0.585 rad. */}
-                  {(() => {
-                    const cx = 140;
-                    const cy = 206.33;
-                    const thetaStart = -2.5562;
-                    const thetaTotal = 1.9701;
-                    const tickAt = (pos, innerR, outerR) => {
-                      const theta = thetaStart + (pos / 100) * thetaTotal;
-                      const c = Math.cos(theta);
-                      const s = Math.sin(theta);
-                      return {
-                        x1: cx + innerR * c,
-                        y1: cy + innerR * s,
-                        x2: cx + outerR * c,
-                        y2: cy + outerR * s,
-                        lx: cx + (outerR + 8) * c,
-                        ly: cy + (outerR + 8) * s,
-                      };
-                    };
-                    const minorTicks = [10, 20, 30, 40, 50, 60, 70, 80, 100];
-                    const majorTicks = [
-                      { pos: 25, label: '25' },
-                      { pos: 65, label: '65' },
-                      { pos: 90, label: '90' },
-                    ];
-                    return (
-                      <>
-                        {minorTicks.map((pos) => {
-                          const t = tickAt(pos, 130, 134);
-                          return (
-                            <line
-                              key={`m-${pos}`}
-                              x1={t.x1}
-                              y1={t.y1}
-                              x2={t.x2}
-                              y2={t.y2}
-                              stroke="var(--slate-300, #cbd2dc)"
-                              strokeWidth="1.5"
-                              strokeLinecap="round"
-                            />
-                          );
-                        })}
-                        {majorTicks.map(({ pos, label }) => {
-                          const t = tickAt(pos, 130, 140);
-                          return (
-                            <g key={`M-${pos}`}>
-                              <line
-                                x1={t.x1}
-                                y1={t.y1}
-                                x2={t.x2}
-                                y2={t.y2}
-                                stroke="var(--muted)"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                              />
-                              <text
-                                x={t.lx}
-                                y={t.ly}
-                                fontSize="10.5"
-                                fontWeight="600"
-                                fill="var(--muted)"
-                                textAnchor="middle"
-                                dominantBaseline="middle"
-                              >
-                                {label}
-                              </text>
-                            </g>
-                          );
-                        })}
-                      </>
-                    );
-                  })()}
-                </svg>
-
-                <div
-                  style={{
-                    marginTop: 12,
-                    padding: '12px 14px',
-                    background: 'var(--surface)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 'var(--r-md)',
-                  }}
-                >
-                  <div className="dash-eyebrow" style={{ marginBottom: 4 }}>What this means next</div>
-                  <p style={{ margin: 0, fontSize: 13, color: 'var(--text)', lineHeight: 1.55 }}>
-                    {buildFIInsight(metrics)}
-                  </p>
+                <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>
+                  From FNA · cash + investments (excl. CPF, property)
                 </div>
               </div>
-
               <div>
-                <div style={{
-                  background: 'var(--accent-50)',
-                  border: '1px solid var(--accent-100)',
-                  borderRadius: 'var(--r-lg)',
-                  padding: 20,
-                  marginBottom: 18,
-                }}>
-                  <div className="dash-eyebrow" style={{ color: 'var(--accent-700)' }}>Work Optional Index</div>
-                  <div style={{
-                    fontSize: 32,
+                <div className="dash-eyebrow">Projected at age {metrics.targetAge}</div>
+                <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent-700)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.01em', marginTop: 2 }}>
+                  {formatCurrency(chartDerived.projectedAtDrawdown)}
+                </div>
+                <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>
+                  At current pace · S${Math.round(metrics.monthlyInvestment).toLocaleString('en-SG')}/mo invested
+                </div>
+              </div>
+              <div>
+                <div className="dash-eyebrow">Sustains to age</div>
+                <div
+                  style={{
+                    fontSize: 24,
+                    fontWeight: 700,
+                    color: chartDerived.sustainAge >= 85 ? 'var(--success-600)' : 'var(--danger-600)',
+                    fontVariantNumeric: 'tabular-nums',
+                    letterSpacing: '-0.01em',
+                    marginTop: 2,
+                  }}
+                >
+                  {chartDerived.sustainAge >= 85 ? '85+' : chartDerived.sustainAge}
+                </div>
+                <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>
+                  {chartDerived.sustainAge >= 85 ? 'Money outlives 85' : 'Funds depleted before life expectancy'}
+                </div>
+              </div>
+            </div>
+
+            {/* The chart */}
+            <div style={{ width: '100%', height: 320, marginBottom: 14 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--slate-100)" vertical={false} />
+                  <XAxis
+                    dataKey="age"
+                    type="number"
+                    domain={[metrics.age, 85]}
+                    ticks={chartDerived.xAxisTicks}
+                    tick={{ fontSize: 11, fill: 'var(--muted)' }}
+                    axisLine={{ stroke: 'var(--border)' }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: 'var(--muted)' }}
+                    tickFormatter={formatCompact}
+                    axisLine={{ stroke: 'var(--border)' }}
+                    tickLine={false}
+                    width={56}
+                  />
+                  <Tooltip
+                    formatter={(value, name) => [
+                      formatCurrency(value),
+                      name === 'honest' ? 'Current pace' : 'If all surplus invested',
+                    ]}
+                    labelFormatter={(age) => `Age ${age}`}
+                    contentStyle={{
+                      background: 'white',
+                      border: '1px solid var(--border)',
+                      borderRadius: 6,
+                      fontSize: 12,
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                    }}
+                  />
+                  <ReferenceLine
+                    x={metrics.targetAge}
+                    stroke="var(--accent-500)"
+                    strokeDasharray="4 4"
+                    strokeWidth={1.5}
+                    label={{
+                      value: `Drawdown ${metrics.targetAge}`,
+                      position: 'insideTopRight',
+                      fontSize: 11,
+                      fill: 'var(--accent-700)',
+                      fontWeight: 600,
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="potential"
+                    stroke="#b3aeff"
+                    strokeWidth={1.5}
+                    strokeDasharray="4 3"
+                    dot={false}
+                    isAnimationActive={false}
+                    name="potential"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="honest"
+                    stroke="var(--accent-500)"
+                    strokeWidth={2.5}
+                    dot={false}
+                    isAnimationActive={false}
+                    name="honest"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Legend */}
+            <div style={{ display: 'flex', gap: 24, marginBottom: 18, fontSize: 12.5, flexWrap: 'wrap' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ width: 22, height: 3, background: 'var(--accent-500)', borderRadius: 1 }} />
+                <span style={{ color: 'var(--muted)' }}>
+                  Current pace · S${Math.round(metrics.monthlyInvestment).toLocaleString('en-SG')}/mo invested
+                </span>
+              </span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ width: 22, borderTop: '2px dashed #b3aeff' }} />
+                <span style={{ color: 'var(--muted)' }}>
+                  If all surplus invested · S${Math.max(0, Math.round(metrics.monthlySavings)).toLocaleString('en-SG')}/mo ceiling
+                </span>
+              </span>
+            </div>
+
+            {/* Drawdown age slider */}
+            <div
+              style={{
+                padding: '14px 16px 16px',
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--r-lg)',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <span className="dash-eyebrow">Drawdown begins at</span>
+                <span
+                  style={{
+                    padding: '1px 7px',
+                    background:
+                      targetAgeOverride != null || metrics.targetAgeFromExtraction
+                        ? 'var(--accent-100)'
+                        : 'var(--slate-100)',
+                    color:
+                      targetAgeOverride != null || metrics.targetAgeFromExtraction
+                        ? 'var(--accent-700)'
+                        : 'var(--muted)',
+                    borderRadius: 4,
+                    fontSize: 10,
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                  }}
+                >
+                  {targetAgeOverride != null
+                    ? 'edited'
+                    : metrics.targetAgeFromExtraction
+                      ? 'from priorities'
+                      : 'default'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 12 }}>
+                <span
+                  style={{
+                    fontSize: 26,
                     fontWeight: 700,
                     color: 'var(--accent-700)',
-                    letterSpacing: '-0.02em',
+                    letterSpacing: '-0.01em',
                     fontVariantNumeric: 'tabular-nums',
-                    marginTop: 4,
-                  }}>
-                    {Math.round(metrics.fiRatio)}%
-                    <span style={{ fontSize: 14, fontWeight: 500, opacity: 0.7, marginLeft: 6 }}>FI Ratio</span>
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--accent-700)', opacity: 0.85, marginTop: 6 }}>
-                    {metrics.isDrawdown
-                      ? `${metrics.currentRunwayYears.toFixed(1)} years of runway at S$${Math.round(metrics.monthlyExpenses).toLocaleString('en-SG')}/mo spending`
-                      : `S$${Math.round(metrics.requiredNestEgg).toLocaleString('en-SG')} nest egg needed by age ${metrics.targetAge}`}
-                  </div>
-                </div>
-
-                {!metrics.isDrawdown && (
-                  <div
-                    style={{
-                      marginBottom: 18,
-                      padding: '14px 16px 16px',
-                      background: 'var(--surface)',
-                      border: '1px solid var(--border)',
-                      borderRadius: 'var(--r-lg)',
-                    }}
-                  >
-                    <style>{`
-                      .target-age-slider {
-                        -webkit-appearance: none;
-                        appearance: none;
-                        width: 100%;
-                        height: 4px;
-                        background: var(--slate-200);
-                        border-radius: 2px;
-                        outline: none;
-                        margin: 0;
-                      }
-                      .target-age-slider::-webkit-slider-thumb {
-                        -webkit-appearance: none;
-                        appearance: none;
-                        width: 18px;
-                        height: 18px;
-                        background: var(--accent-500);
-                        border: 3px solid white;
-                        border-radius: 50%;
-                        cursor: pointer;
-                        box-shadow: 0 1px 4px rgba(99,91,255,0.35);
-                        transition: transform 0.15s ease;
-                      }
-                      .target-age-slider::-webkit-slider-thumb:hover { transform: scale(1.1); }
-                      .target-age-slider::-moz-range-thumb {
-                        width: 18px;
-                        height: 18px;
-                        background: var(--accent-500);
-                        border: 3px solid white;
-                        border-radius: 50%;
-                        cursor: pointer;
-                        box-shadow: 0 1px 4px rgba(99,91,255,0.35);
-                      }
-                    `}</style>
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        marginBottom: 10,
-                      }}
-                    >
-                      <span className="dash-eyebrow">Target work-optional age</span>
-                      <span
-                        style={{
-                          padding: '1px 7px',
-                          background: targetAgeOverride != null
-                            ? 'var(--accent-100)'
-                            : metrics.targetAgeFromExtraction
-                              ? 'var(--accent-100)'
-                              : 'var(--slate-100)',
-                          color: targetAgeOverride != null || metrics.targetAgeFromExtraction
-                            ? 'var(--accent-700)'
-                            : 'var(--muted)',
-                          borderRadius: 4,
-                          fontSize: 10,
-                          fontWeight: 600,
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.04em',
-                        }}
-                      >
-                        {targetAgeOverride != null
-                          ? 'edited'
-                          : metrics.targetAgeFromExtraction
-                            ? 'from priorities'
-                            : 'default'}
-                      </span>
-                    </div>
-
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'baseline',
-                        gap: 8,
-                        marginBottom: 12,
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontSize: 26,
-                          fontWeight: 700,
-                          color: 'var(--accent-700)',
-                          letterSpacing: '-0.01em',
-                          fontVariantNumeric: 'tabular-nums',
-                          lineHeight: 1,
-                        }}
-                      >
-                        {targetAgeOverride ?? metrics.targetAge}
-                      </span>
-                      <span style={{ fontSize: 13, color: 'var(--muted)' }}>
-                        years old · {Math.max(0, (targetAgeOverride ?? metrics.targetAge) - metrics.age)} years from now
-                      </span>
-                    </div>
-
-                    <input
-                      type="range"
-                      min={metrics.age}
-                      max={75}
-                      step={1}
-                      value={targetAgeOverride ?? metrics.targetAge}
-                      onChange={(e) => {
-                        const v = parseInt(e.target.value, 10);
-                        if (!Number.isFinite(v)) return;
-                        setTargetAgeOverride(Math.max(metrics.age, Math.min(75, v)));
-                      }}
-                      aria-label="Target work-optional age"
-                      className="target-age-slider"
-                    />
-
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        marginTop: 6,
-                        fontSize: 11,
-                        color: 'var(--subtle)',
-                        fontVariantNumeric: 'tabular-nums',
-                      }}
-                    >
-                      <span>now ({metrics.age})</span>
-                      <span>75</span>
-                    </div>
-                  </div>
-                )}
-
+                    lineHeight: 1,
+                  }}
+                >
+                  {targetAgeOverride ?? metrics.targetAge}
+                </span>
+                <span style={{ fontSize: 13, color: 'var(--muted)' }}>
+                  years old · {Math.max(0, (targetAgeOverride ?? metrics.targetAge) - metrics.age)} years from now
+                </span>
+              </div>
+              <input
+                type="range"
+                min={metrics.age}
+                max={75}
+                step={1}
+                value={targetAgeOverride ?? metrics.targetAge}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value, 10);
+                  if (!Number.isFinite(v)) return;
+                  setTargetAgeOverride(Math.max(metrics.age, Math.min(75, v)));
+                }}
+                aria-label="Drawdown age"
+                className="target-age-slider"
+              />
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  marginTop: 6,
+                  fontSize: 11,
+                  color: 'var(--subtle)',
+                  fontVariantNumeric: 'tabular-nums',
+                }}
+              >
+                <span>now ({metrics.age})</span>
+                <span>75</span>
               </div>
             </div>
           </section>
 
-          {/* Key metrics */}
+          {/* Key metrics — investment-focused. Total contributed is editable;
+              profit/ROE derives from it. Net-worth / debt sit in cashflow below. */}
           <section className="dash-stats" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: 18 }}>
-            {[
-              { label: 'Net worth', value: formatCurrency(metrics.netWorth) },
-              { label: 'Liquid assets', value: formatCurrency(metrics.liquidAssets) },
-              { label: 'Monthly savings', value: formatCurrency(metrics.monthlySavings), tone: metrics.monthlySavings >= 0 ? 'pos' : 'neg' },
-              { label: 'Debt ratio', value: `${metrics.debtRatio.toFixed(1)}%`, tone: metrics.debtRatio < 30 ? 'pos' : metrics.debtRatio < 50 ? 'warn' : 'neg' },
-            ].map((stat) => (
-              <div key={stat.label} className="dash-stat">
-                <span className="dash-stat-label">{stat.label}</span>
-                <span
-                  className="dash-stat-value"
-                  style={{
-                    color:
-                      stat.tone === 'pos'
-                        ? 'var(--success-600)'
-                        : stat.tone === 'neg'
-                        ? 'var(--danger-600)'
-                        : stat.tone === 'warn'
-                        ? '#8a5a08'
-                        : 'var(--text)',
-                  }}
-                >
-                  {stat.value}
-                </span>
-              </div>
-            ))}
+            {(() => {
+              const currentValue = metrics.nonCPFLiquid;
+              const totalContributed = totalContributedOverride;
+              const hasContributed = totalContributed != null && totalContributed > 0;
+              const profit = hasContributed ? currentValue - totalContributed : null;
+              const roe = hasContributed && totalContributed > 0 ? (profit / totalContributed) * 100 : null;
+
+              const profitTone = profit == null ? null : profit >= 0 ? 'pos' : 'neg';
+              const tone = (t) =>
+                t === 'pos'
+                  ? 'var(--success-600)'
+                  : t === 'neg'
+                    ? 'var(--danger-600)'
+                    : t === 'warn'
+                      ? '#8a5a08'
+                      : 'var(--text)';
+
+              return (
+                <>
+                  <div className="dash-stat">
+                    <span className="dash-stat-label">Monthly investment</span>
+                    <span className="dash-stat-value">{formatCurrency(metrics.monthlyInvestment)}</span>
+                  </div>
+
+                  <div className="dash-stat">
+                    <span className="dash-stat-label">Total contributed</span>
+                    <input
+                      type="number"
+                      value={totalContributedOverride ?? ''}
+                      onChange={(e) => {
+                        const v = parseFloat(e.target.value);
+                        setTotalContributedOverride(Number.isFinite(v) && v >= 0 ? v : null);
+                      }}
+                      placeholder="—"
+                      aria-label="Total capital contributed"
+                      style={{
+                        border: 'none',
+                        background: 'transparent',
+                        padding: 0,
+                        fontSize: 'inherit',
+                        fontWeight: 'inherit',
+                        fontFamily: 'inherit',
+                        color: hasContributed ? 'var(--text)' : 'var(--subtle)',
+                        fontVariantNumeric: 'tabular-nums',
+                        width: '100%',
+                        outline: 'none',
+                      }}
+                      className="dash-stat-value"
+                    />
+                  </div>
+
+                  <div className="dash-stat">
+                    <span className="dash-stat-label">Current value</span>
+                    <span className="dash-stat-value">{formatCurrency(currentValue)}</span>
+                  </div>
+
+                  <div className="dash-stat">
+                    <span className="dash-stat-label">Profit / ROE</span>
+                    <span
+                      className="dash-stat-value"
+                      style={{ color: tone(profitTone) }}
+                    >
+                      {profit == null
+                        ? '—'
+                        : `${profit >= 0 ? '+' : '−'}${formatCurrency(Math.abs(profit))} · ${roe.toFixed(1)}%`}
+                    </span>
+                  </div>
+                </>
+              );
+            })()}
           </section>
 
           {/* Cashflow + Asset Allocation */}

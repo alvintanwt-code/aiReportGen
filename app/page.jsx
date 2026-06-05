@@ -578,9 +578,17 @@ function LandingPage({
     return () => clearInterval(typingInterval);
   }, [fullGreeting]);
 
-  const filteredClients = clients.filter((client) =>
-    client.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Most recently added first. Future grouping (upcoming birthdays, SRS gaps,
+  // budget shortfalls, etc.) will layer on top of this base sort rather than
+  // replace it — see the planned tag/filter work.
+  const filteredClients = clients
+    .filter((client) => client.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    .slice()
+    .sort((a, b) => {
+      const at = a?.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bt = b?.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bt - at;
+    });
 
   const getClientStats = (client) => {
     const savedReviews = reviews.filter(
@@ -619,17 +627,6 @@ function LandingPage({
     },
     { reviews: 0, portfolios: 0, aum: 0 }
   );
-
-  // Group clients: Active = has saved portfolios; Onboarding = none yet.
-  const groupOf = (client) => {
-    const s = getClientStats(client);
-    return s.portfolioCount > 0 ? 'active' : 'onboarding';
-  };
-
-  const groups = {
-    active: filteredClients.filter((c) => groupOf(c) === 'active'),
-    onboarding: filteredClients.filter((c) => groupOf(c) === 'onboarding'),
-  };
 
   const isTyping = displayedText.length < fullGreeting.length;
 
@@ -768,24 +765,10 @@ function LandingPage({
               Nothing matches “{searchQuery}”. Try a different name or clear the search.
             </div>
           </div>
-        ) : searchQuery ? (
-          // Flat results during search — grouping would obscure the find.
-          renderClientList(filteredClients)
         ) : (
-          <>
-            {groups.active.length > 0 && (
-              <>
-                <GroupHeader label="Active" count={groups.active.length} kind="active" />
-                {renderClientList(groups.active)}
-              </>
-            )}
-            {groups.onboarding.length > 0 && (
-              <>
-                <GroupHeader label="Onboarding" count={groups.onboarding.length} kind="onboarding" />
-                {renderClientList(groups.onboarding)}
-              </>
-            )}
-          </>
+          // Single flat list, newest first. Filters and grouping will return
+          // when we add tags / smart segments (birthdays, SRS gaps, etc.).
+          renderClientList(filteredClients)
         )}
       </main>
     </div>
