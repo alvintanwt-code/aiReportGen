@@ -13,7 +13,17 @@ import {
   TrendingDown,
 } from 'lucide-react';
 
-const STORAGE_KEY = 'reportFormDraft';
+const STORAGE_KEY_PREFIX = 'reportFormDraft';
+const LEGACY_STORAGE_KEY = 'reportFormDraft';
+
+// Per-review draft scoping. Falls back to a stable "no-scope" key only if no
+// reviewId is passed — should never happen in normal flow, but keeps the form
+// usable if a caller forgets the prop.
+function makeStorageKey(reviewId) {
+  return reviewId
+    ? `${STORAGE_KEY_PREFIX}:${reviewId}`
+    : `${STORAGE_KEY_PREFIX}:unscoped`;
+}
 
 const STEP_LABELS = ['Client', 'Portfolios', 'Branding'];
 
@@ -32,11 +42,14 @@ const PROVIDERS = [
 ];
 
 export default function ReportDetailsForm({
+  reviewId,
+  clientId,
   clientName,
   holdingsSets = [],
   onGenerateReport,
   onCancel,
 }) {
+  const STORAGE_KEY = makeStorageKey(reviewId);
   const [step, setStep] = useState(1);
   const [errors, setErrors] = useState({});
   const [lastSaved, setLastSaved] = useState(null);
@@ -74,8 +87,16 @@ export default function ReportDetailsForm({
   );
   const [colorScheme, setColorScheme] = useState('dark-navy');
 
-  // Load saved draft on mount (restore BEFORE auto-save runs)
+  // Load saved draft on mount (restore BEFORE auto-save runs).
+  // Also wipe the legacy global-scope key from old builds so a stale draft
+  // from one client never leaks into another.
   useEffect(() => {
+    try {
+      const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+      if (legacy && LEGACY_STORAGE_KEY !== STORAGE_KEY) {
+        localStorage.removeItem(LEGACY_STORAGE_KEY);
+      }
+    } catch (_) {}
     const savedDraft = localStorage.getItem(STORAGE_KEY);
     if (savedDraft) {
       try {

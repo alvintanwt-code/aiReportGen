@@ -495,6 +495,8 @@ export default function ReviewUploadView({
         >
           <div className="dash-modal-card">
             <ReportDetailsForm
+              reviewId={review.id}
+              clientId={selectedClientId}
               clientName={clientName}
               holdingsSets={holdingsSets}
               onGenerateReport={handleReportGenerated}
