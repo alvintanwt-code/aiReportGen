@@ -27,6 +27,94 @@ function makeStorageKey(reviewId) {
 
 const STEP_LABELS = ['Client', 'Portfolios', 'Branding'];
 
+/**
+ * XIRR — Newton-Raphson solver for the rate r where NPV of all dated cashflows = 0.
+ * Cashflows: array of { date: Date, amount: number }. Convention: money OUT of
+ * investor's pocket is negative, money RETURNED to investor is positive.
+ * Returns the annualised rate as a decimal (0.08 = 8%), or null if no solution.
+ */
+function xirr(cashflows) {
+  if (!cashflows || cashflows.length < 2) return null;
+  const hasNeg = cashflows.some((cf) => cf.amount < 0);
+  const hasPos = cashflows.some((cf) => cf.amount > 0);
+  if (!hasNeg || !hasPos) return null;
+
+  const t0 = cashflows[0].date.getTime();
+  const toYears = (d) => (d.getTime() - t0) / (365.25 * 24 * 60 * 60 * 1000);
+
+  const npv = (rate) =>
+    cashflows.reduce(
+      (sum, cf) => sum + cf.amount / Math.pow(1 + rate, toYears(cf.date)),
+      0
+    );
+  const dnpv = (rate) =>
+    cashflows.reduce((sum, cf) => {
+      const t = toYears(cf.date);
+      return sum - (t * cf.amount) / Math.pow(1 + rate, t + 1);
+    }, 0);
+
+  let rate = 0.1; // 10% initial guess
+  for (let i = 0; i < 100; i++) {
+    const f = npv(rate);
+    if (!isFinite(f)) return null;
+    if (Math.abs(f) < 1e-7) return rate;
+    const df = dnpv(rate);
+    if (df === 0 || !isFinite(df)) return null;
+    const next = rate - f / df;
+    if (!isFinite(next)) return null;
+    if (Math.abs(next - rate) < 1e-7) return next;
+    rate = next;
+    if (rate <= -0.999) rate = -0.999;
+    if (rate > 100) return null;
+  }
+  return null;
+}
+
+/**
+ * Build the dated cashflow series for an account. Lumpsums collapse to a
+ * single negative flow at inception. Regular premiums schedule one flow per
+ * paid period at the actual anniversary date. Top-ups are anchored to
+ * inception; withdrawals are anchored to the terminal date (best-effort given
+ * the form doesn't capture dated history).
+ */
+function buildCashflows(account, inceptionDate, reportDate, wholeMonths) {
+  const flows = [];
+  const currentValue = parseFloat(account.currentValuation) || 0;
+  const withdrawals = parseFloat(account.regularWithdrawals) || 0;
+
+  if (account.investmentType === 'lumpsum') {
+    const initial =
+      (parseFloat(account.initialCapital) || 0) + (parseFloat(account.totalTopUps) || 0);
+    if (initial > 0) flows.push({ date: inceptionDate, amount: -initial });
+  } else {
+    const premium = parseFloat(account.premiumAmount) || 0;
+    const topUps = parseFloat(account.regularTopUps) || 0;
+    if (premium > 0) {
+      if (account.premiumFrequency === 'monthly') {
+        for (let i = 0; i < wholeMonths; i++) {
+          const d = new Date(inceptionDate);
+          d.setMonth(d.getMonth() + i);
+          flows.push({ date: d, amount: -premium });
+        }
+      } else {
+        const wholeYears = Math.floor(wholeMonths / 12);
+        for (let i = 0; i < wholeYears; i++) {
+          const d = new Date(inceptionDate);
+          d.setFullYear(d.getFullYear() + i);
+          flows.push({ date: d, amount: -premium });
+        }
+      }
+    }
+    if (topUps > 0) flows.push({ date: inceptionDate, amount: -topUps });
+  }
+
+  // Terminal: current value + any withdrawals already taken
+  if (currentValue > 0 || withdrawals > 0) {
+    flows.push({ date: reportDate, amount: currentValue + withdrawals });
+  }
+  return flows;
+}
+
 const PROVIDERS = [
   { value: '', label: 'Select provider' },
   { value: 'aia', label: 'AIA' },
@@ -232,17 +320,30 @@ export default function ReportDetailsForm({
     const currentValue = parseFloat(account.currentValuation) || 0;
     const gain = currentValue - capitalInvested;
     const pAndLPercent = capitalInvested > 0 ? (gain / capitalInvested) * 100 : 0;
-    const cagr =
+
+    // XIRR — annualised internal rate of return weighted by when each
+    // contribution actually went in. Falls back to CAGR if the solver can't
+    // converge (e.g. very short horizon, all-positive flows).
+    const cashflows = buildCashflows(account, inceptionDate, reportDateObj, wholeMonths);
+    const xirrRate = xirr(cashflows);
+    const xirrPct = xirrRate != null && isFinite(xirrRate) ? xirrRate * 100 : null;
+
+    const fallbackCagr =
       capitalInvested > 0 && yearsDiff > 0
         ? (Math.pow(currentValue / capitalInvested, 1 / yearsDiff) - 1) * 100
         : 0;
+    const ratePct = xirrPct != null ? xirrPct : fallbackCagr;
 
     return {
       capitalInvested: Math.round(capitalInvested),
       currentValue: Math.round(currentValue),
       gain: Math.round(gain),
       pAndL: isFinite(pAndLPercent) ? pAndLPercent.toFixed(2) : '0.00',
-      cagr: isFinite(cagr) ? cagr.toFixed(2) : '0.00',
+      // `xirr` is the new canonical field; `cagr` kept as an alias so the
+      // downstream reportGenerationService keeps working without changes.
+      xirr: isFinite(ratePct) ? ratePct.toFixed(2) : '0.00',
+      cagr: isFinite(ratePct) ? ratePct.toFixed(2) : '0.00',
+      rateMethod: xirrPct != null ? 'xirr' : 'cagr',
       years: isFinite(yearsDiff) ? yearsDiff.toFixed(1) : '0.0',
     };
   };
@@ -267,7 +368,9 @@ export default function ReportDetailsForm({
           inceptionDate: account.inceptionDate,
           currentValuation: parseFloat(account.currentValuation) || 0,
           capitalInvested: returns?.capitalInvested || 0,
+          xirr: returns?.xirr || null,
           cagr: returns?.cagr || null,
+          rateMethod: returns?.rateMethod || 'cagr',
         };
       });
 
@@ -629,9 +732,14 @@ export default function ReportDetailsForm({
                             </span>
                           </div>
                           <div className="dash-returns-cell">
-                            <span className="dash-returns-label">CAGR</span>
-                            <span className={`dash-returns-value ${parseFloat(returns.cagr) >= 0 ? 'is-pos' : 'is-neg'}`}>
-                              {returns.cagr}%
+                            <span
+                              className="dash-returns-label"
+                              title={returns.rateMethod === 'cagr' ? 'XIRR could not converge — showing CAGR fallback' : 'Annualised internal rate of return on dated cashflows'}
+                            >
+                              {returns.rateMethod === 'cagr' ? 'CAGR' : 'XIRR'}
+                            </span>
+                            <span className={`dash-returns-value ${parseFloat(returns.xirr) >= 0 ? 'is-pos' : 'is-neg'}`}>
+                              {returns.xirr}%
                             </span>
                           </div>
                         </div>
