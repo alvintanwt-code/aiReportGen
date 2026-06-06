@@ -196,10 +196,21 @@ export default function ReportDetailsForm({
     const inceptionDate = new Date(account.inceptionDate);
     const reportDateObj = new Date(reportPeriod);
     const daysDiff = Math.floor((reportDateObj - inceptionDate) / (1000 * 60 * 60 * 24));
-    const monthsDiff = daysDiff / 30.44;
-    const yearsDiff = daysDiff / 365.25;
+    const yearsDiff = daysDiff / 365.25; // fractional, used only for CAGR
 
     if (yearsDiff <= 0) return null;
+
+    // Whole calendar periods between inception and report. Counts completed
+    // monthly anniversaries — matches how premiums are actually paid and gives
+    // clean integer multiplication results (no fractional-month oddities).
+    const wholeMonths = (() => {
+      let m =
+        (reportDateObj.getFullYear() - inceptionDate.getFullYear()) * 12 +
+        (reportDateObj.getMonth() - inceptionDate.getMonth());
+      if (reportDateObj.getDate() < inceptionDate.getDate()) m -= 1;
+      return Math.max(0, m);
+    })();
+    const wholeYears = Math.floor(wholeMonths / 12);
 
     let capitalInvested = 0;
     if (account.investmentType === 'lumpsum') {
@@ -208,12 +219,12 @@ export default function ReportDetailsForm({
         (parseFloat(account.totalTopUps) || 0) -
         (parseFloat(account.regularWithdrawals) || 0);
     } else {
-      const monthlyAmount =
-        account.premiumFrequency === 'monthly'
-          ? parseFloat(account.premiumAmount) || 0
-          : (parseFloat(account.premiumAmount) || 0) / 12;
+      // Regular premium — multiply periods elapsed by the per-period amount.
+      // Monthly: wholeMonths × monthly premium. Annual: wholeYears × annual premium.
+      const premium = parseFloat(account.premiumAmount) || 0;
+      const periodsElapsed = account.premiumFrequency === 'monthly' ? wholeMonths : wholeYears;
       capitalInvested =
-        monthlyAmount * monthsDiff +
+        periodsElapsed * premium +
         (parseFloat(account.regularTopUps) || 0) -
         (parseFloat(account.regularWithdrawals) || 0);
     }
