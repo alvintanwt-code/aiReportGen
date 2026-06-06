@@ -97,8 +97,11 @@ function buildCashflows(account, inceptionDate, reportDate, wholeMonths) {
           flows.push({ date: d, amount: -premium });
         }
       } else {
+        // Annual — inception itself counts as payment #1, then one per
+        // subsequent anniversary. So Sep 2017 to Jun 2026 schedules
+        // payments in 2017, 2018, ..., 2025 = 9 flows.
         const wholeYears = Math.floor(wholeMonths / 12);
-        for (let i = 0; i < wholeYears; i++) {
+        for (let i = 0; i <= wholeYears; i++) {
           const d = new Date(inceptionDate);
           d.setFullYear(d.getFullYear() + i);
           flows.push({ date: d, amount: -premium });
@@ -308,9 +311,13 @@ export default function ReportDetailsForm({
         (parseFloat(account.regularWithdrawals) || 0);
     } else {
       // Regular premium — multiply periods elapsed by the per-period amount.
-      // Monthly: wholeMonths × monthly premium. Annual: wholeYears × annual premium.
+      // Annual: inception counts as payment #1, so Sep 2017 → Jun 2026 = 9
+      // payments (wholeYears 8 + the inception year itself).
+      // Monthly: count whole months elapsed (first payment treated as falling
+      // at month +1, not at inception itself).
       const premium = parseFloat(account.premiumAmount) || 0;
-      const periodsElapsed = account.premiumFrequency === 'monthly' ? wholeMonths : wholeYears;
+      const periodsElapsed =
+        account.premiumFrequency === 'monthly' ? wholeMonths : wholeYears + 1;
       capitalInvested =
         periodsElapsed * premium +
         (parseFloat(account.regularTopUps) || 0) -
